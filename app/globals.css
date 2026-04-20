@@ -233,25 +233,26 @@ body::before {
 
 /* Board helpers */
 .hex-label {
-  font-family: var(--font-mono); font-weight: 700; font-size: 16px;
-  fill: #fff; text-anchor: middle; dominant-baseline: central;
+  font-family: var(--font-mono); font-weight: 800;
+  text-anchor: middle; dominant-baseline: central;
   pointer-events: none;
-  paint-order: stroke; stroke: rgba(0,0,0,0.6); stroke-width: 3; stroke-linejoin: round;
 }
-.hex-label.red { fill: #fca5a5; }
-.tile-poly { stroke: rgba(0,0,0,0.5); stroke-width: 1; transition: filter 120ms; }
-.tile-poly.robbed { filter: saturate(0.35) brightness(0.65); }
+.hex-label.red { fill: #b91c1c; }
+.tile { transition: filter 120ms; }
+.tile.robbed { filter: saturate(0.35) brightness(0.6); }
+.tile-poly { pointer-events: none; }
+.tile-shade { pointer-events: none; mix-blend-mode: soft-light; }
+.terrain-glyph { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
 .tile-click { fill: transparent; cursor: pointer; }
-.tile-click:hover { fill: rgba(217,119,6,0.18); }
-.edge-hit { stroke: transparent; stroke-width: 14; cursor: pointer; fill: none; }
-.edge-hit.clickable:hover { stroke: rgba(217,119,6,0.25); }
-.edge-road { stroke-width: 6; stroke-linecap: round; fill: none; pointer-events: none; }
+.tile-click:hover { fill: rgba(217,119,6,0.22); }
+.edge-hit { stroke: transparent; cursor: pointer; fill: none; }
+.edge-hit.clickable:hover { stroke: rgba(217,119,6,0.35); }
+.edge-road { fill: none; pointer-events: none; filter: drop-shadow(0 0.01px 0.04px rgba(0,0,0,0.6)); }
 .vertex-hit { fill: transparent; cursor: pointer; }
-.vertex-hit.clickable:hover { fill: rgba(217,119,6,0.25); }
-.vertex-marker { stroke: rgba(0,0,0,0.5); stroke-width: 1; pointer-events: none; }
-.robber { fill: #0a0a0a; stroke: var(--amber); stroke-width: 2; pointer-events: none; filter: drop-shadow(0 0 6px rgba(0,0,0,0.6)); }
-.port-dot { fill: rgba(255,255,255,0.15); stroke: var(--amber); stroke-width: 1.5; }
-.port-label { font-family: var(--font-mono); font-size: 9px; fill: var(--text-2); text-anchor: middle; }
+.vertex-hit.clickable:hover { fill: rgba(217,119,6,0.35); }
+.vertex-marker { pointer-events: none; filter: drop-shadow(0 0.02px 0.04px rgba(0,0,0,0.6)); }
+.port-dot { pointer-events: none; }
+.port-label { font-family: var(--font-mono); pointer-events: none; }
 
 /* Dice */
 .dice-row { display: flex; gap: 10px; justify-content: center; margin: 8px 0; }

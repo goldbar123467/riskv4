@@ -149,19 +149,13 @@ function buildStandardAxials(): Axial[] {
   return out;
 }
 
-// Canonical port layout: 9 ports at classic coastal vertex pairs.
-// Each entry is [tileAxialIndex into STANDARD_AXIALS, sideIndex, kind].
-// The ports sit on the outer ring; we pick a stable, rotationally balanced set.
-const PORT_TEMPLATE: ReadonlyArray<{ axialIdx: number; side: number; kind: PortKind }> = [
-  { axialIdx: 9,  side: 2, kind: 'generic' },
-  { axialIdx: 11, side: 1, kind: 'wheat'   },
-  { axialIdx: 13, side: 1, kind: 'ore'     },
-  { axialIdx: 15, side: 0, kind: 'generic' },
-  { axialIdx: 17, side: 5, kind: 'sheep'   },
-  { axialIdx: 7,  side: 3, kind: 'generic' },
-  { axialIdx: 8,  side: 3, kind: 'brick'   },
-  { axialIdx: 10, side: 2, kind: 'generic' },
-  { axialIdx: 18, side: 0, kind: 'wood'    },
+// Canonical 9-port kind sequence laid clockwise around the coast.
+// 4 generic (3:1) + 5 specific (2:1). The *edges* are picked dynamically
+// from the actual coastline so ports always sit on real outer edges.
+const PORT_KIND_SEQUENCE: readonly PortKind[] = [
+  'generic', 'wheat',  'ore',
+  'generic', 'sheep',  'generic',
+  'brick',   'generic','wood',
 ];
 
 // Standard terrain multiset: 4 wood, 4 wheat, 4 sheep, 3 brick, 3 ore, 1 desert.
@@ -275,14 +269,41 @@ export function createStandardBoard(seed: number): Board {
   }
   edgeOrder.sort();
 
-  // Ports: map each template slot to a concrete pair of vertex ids.
+  // Ports: walk the actual coastline clockwise and place 9 ports evenly.
+  // A coastal edge is one touching exactly one tile (no neighbor across it).
+  type CoastalEdge = {
+    readonly eId: EdgeId;
+    readonly a: VertexId;
+    readonly b: VertexId;
+    readonly midX: number;
+    readonly midY: number;
+  };
+  const coastal: CoastalEdge[] = [];
+  for (const eId of edgeOrder) {
+    const e = edges[eId]!;
+    if (e.tiles.length !== 1) continue;
+    const vA = vertices[e.a]!;
+    const vB = vertices[e.b]!;
+    coastal.push({
+      eId,
+      a: e.a,
+      b: e.b,
+      midX: (vA.x + vB.x) / 2,
+      midY: (vA.y + vB.y) / 2,
+    });
+  }
+  // Sort clockwise-from-north around board centroid (SVG y grows downward,
+  // so atan2(y, x) running counter-clockwise in math is clockwise visually).
+  coastal.sort((p, q) => Math.atan2(p.midY, p.midX) - Math.atan2(q.midY, q.midX));
+
   const ports: Port[] = [];
-  for (const pt of PORT_TEMPLATE) {
-    const a = STANDARD_AXIALS[pt.axialIdx];
-    if (!a) continue;
-    const vA = vertexId(a, pt.side);
-    const vB = vertexId(a, (pt.side + 1) % 6);
-    ports.push({ vertices: [vA, vB] as const, kind: pt.kind });
+  if (coastal.length >= PORT_KIND_SEQUENCE.length) {
+    const step = coastal.length / PORT_KIND_SEQUENCE.length;
+    for (let i = 0; i < PORT_KIND_SEQUENCE.length; i++) {
+      const idx = Math.floor(i * step) % coastal.length;
+      const ce = coastal[idx]!;
+      ports.push({ vertices: [ce.a, ce.b] as const, kind: PORT_KIND_SEQUENCE[i]! });
+    }
   }
 
   if (!robberTile) {
