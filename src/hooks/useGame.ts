@@ -55,11 +55,11 @@ export interface UseGameResult {
   readonly dispatch: (action: Action) => void;
   readonly newGame: (seed?: number) => void;
   readonly save: () => void;
-  readonly canDo: (action: Action) => Legality;
+  readonly canDo: (action: Action, actor?: PlayerId) => Legality;
   readonly currentActorIsAI: boolean;
 }
 
-export function useGame(): UseGameResult {
+export function useGame(humanId: PlayerId = 0): UseGameResult {
   const [state, rawDispatch] = useReducer(engineReducer, undefined, () => freshState());
   const hydratedRef = useRef(false);
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,7 +98,13 @@ export function useGame(): UseGameResult {
     try { window.localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
   }, [state]);
 
-  const canDo = useCallback((action: Action): Legality => engineCanDo(state, action), [state]);
+  const canDo = useCallback(
+    (action: Action, actor?: PlayerId): Legality => {
+      const who: PlayerId = actor ?? (action.kind === 'DISCARD' ? action.playerId : humanId);
+      return engineCanDo(state, action, who);
+    },
+    [state, humanId],
+  );
 
   // AI loop — step whenever the current actor is an AI and a pending
   // requirement is on an AI (discard on 7, for instance).
