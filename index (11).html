@@ -1,0 +1,3914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+<title>RISK — Cold War Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg-0: #0a1628;
+  --bg-1: #142440;
+  --panel-bg: rgba(10, 22, 40, 0.92);
+  --panel-border: rgba(217, 119, 6, 0.3);
+  --divider: rgba(255, 255, 255, 0.06);
+  --amber: #d97706;
+  --amber-2: #f59e0b;
+  --crimson: #dc2626;
+  --sapphire: #2563eb;
+  --emerald: #059669;
+  --violet: #7c3aed;
+  --rose: #ec4899;
+  --neutral: #475569;
+  --text-1: #e5e7eb;
+  --text-2: #94a3b8;
+  --text-3: #64748b;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%;
+  background: radial-gradient(ellipse at center, var(--bg-1) 0%, var(--bg-0) 70%);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  user-select: none;
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+#app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: flex; }
+
+/* ---------------- Map ---------------- */
+#map-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+#map-svg {
+  width: 100%; height: 100%;
+  display: block;
+}
+.continent-label {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  fill: rgba(255,255,255,0.18);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.adj-line { stroke: rgba(255,255,255,0.15); stroke-width: 1; fill: none; pointer-events: none; }
+.adj-line.dashed { stroke-dasharray: 4 4; }
+.adj-line.pulse {
+  stroke: var(--amber);
+  stroke-width: 2;
+  animation: pulseFade 600ms ease-out forwards;
+}
+@keyframes pulseFade {
+  0% { stroke-opacity: 1; stroke-width: 3; }
+  100% { stroke-opacity: 0; stroke-width: 2; }
+}
+.node-group { cursor: pointer; transition: transform 150ms ease; transform-origin: center; transform-box: fill-box; }
+.node-group.unclickable { cursor: default; }
+.node-circle {
+  stroke-width: 2;
+  transition: r 150ms ease, filter 150ms ease;
+}
+.node-circle.neutral { fill: var(--neutral); stroke-dasharray: 3 3; stroke: #cbd5e1; }
+.node-group.selected .node-circle { filter: drop-shadow(0 0 8px var(--amber)); r: 22; }
+.node-group.source .node-circle { filter: drop-shadow(0 0 10px var(--amber-2)); r: 22; }
+.node-group.target .node-circle { filter: drop-shadow(0 0 10px var(--crimson)); r: 22; }
+.node-group.hoverable:hover .node-circle { filter: drop-shadow(0 0 6px rgba(255,255,255,0.4)); }
+.node-label {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  fill: #fff;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(0,0,0,0.55);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.node-name {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  fill: rgba(255,255,255,0.6);
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(0,0,0,0.6);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.edge-arrow { fill: rgba(255,255,255,0.35); pointer-events: none; }
+
+/* ---------------- Sidebar ---------------- */
+#sidebar {
+  width: 340px;
+  min-width: 340px;
+  height: 100vh;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 5;
+}
+.panel-section { padding: 14px 18px; border-bottom: 1px solid var(--divider); }
+.panel-section:last-child { border-bottom: none; }
+#game-title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: 0.24em;
+  padding: 16px 18px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--divider);
+}
+#turn-info { display: flex; align-items: center; gap: 10px; }
+#turn-info .swatch {
+  width: 22px; height: 22px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+#turn-info .name {
+  font-family: var(--font-sans); font-weight: 600; font-size: 14px;
+}
+#turn-info .turn-num {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-2);
+}
+#phase-label {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+#phase-help {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.stat-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; font-size: 12px; }
+.stat-row .lbl { color: var(--text-2); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+.stat-row .val { font-family: var(--font-mono); font-size: 14px; color: var(--amber); font-weight: 700; }
+
+.btn {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  background: var(--amber);
+  color: #fff;
+  transition: opacity 120ms, transform 60ms;
+  margin: 3px 4px 3px 0;
+}
+.btn:hover:not(:disabled) { opacity: 0.88; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn.secondary { background: rgba(255,255,255,0.08); color: var(--text-1); }
+.btn.danger { background: var(--crimson); }
+.btn.full { width: 100%; margin: 4px 0; }
+
+.slider-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--amber); }
+.slider-row .count {
+  font-family: var(--font-mono); font-weight: 700;
+  min-width: 36px; text-align: right; color: var(--amber);
+}
+
+.sel-display {
+  font-size: 11px; color: var(--text-2);
+  margin: 6px 0;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+.sel-display .terr { color: var(--text-1); font-weight: 600; }
+
+/* Dice */
+.dice-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0; min-height: 48px; }
+.die {
+  width: 48px; height: 48px;
+  background: #f5f5f4;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 -2px 0 rgba(0,0,0,0.1);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  padding: 6px;
+  gap: 2px;
+}
+.die.atk { border-bottom: 3px solid var(--crimson); }
+.die.def { border-bottom: 3px solid var(--sapphire); }
+.die.shake { animation: dieShake 380ms ease-in-out; }
+@keyframes dieShake {
+  0%,100% { transform: rotate(0); }
+  15% { transform: translate(-2px,-3px) rotate(-8deg); }
+  30% { transform: translate(3px,2px) rotate(10deg); }
+  45% { transform: translate(-1px,3px) rotate(-6deg); }
+  60% { transform: translate(2px,-2px) rotate(5deg); }
+  75% { transform: translate(-2px,1px) rotate(-3deg); }
+  90% { transform: translate(1px,0) rotate(1deg); }
+}
+.die .pip {
+  width: 6px; height: 6px;
+  background: #111;
+  border-radius: 50%;
+  align-self: center; justify-self: center;
+}
+.die .pip.hidden { visibility: hidden; }
+
+/* Roster */
+.roster { display: flex; flex-direction: column; gap: 6px; }
+.roster-row { display: grid; grid-template-columns: 14px 1fr auto auto auto; gap: 8px; align-items: center; font-size: 11px; padding: 4px 0; }
+.roster-row.active { background: rgba(217,119,6,0.08); border-radius: 3px; padding: 4px 6px; }
+.roster-row .swatch { width: 12px; height: 12px; border-radius: 2px; }
+.roster-row .pname { font-weight: 600; color: var(--text-1); }
+.roster-row.eliminated .pname { text-decoration: line-through; color: var(--text-3); }
+.roster-row .rstat { font-family: var(--font-mono); font-size: 10px; color: var(--text-2); min-width: 24px; text-align: right; }
+
+/* Log */
+#log-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+#log-list {
+  overflow-y: auto;
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-2);
+  padding-right: 4px;
+}
+#log-list .entry { padding: 3px 0; border-bottom: 1px dotted rgba(255,255,255,0.04); }
+#log-list .entry:last-child { border-bottom: none; }
+#log-list::-webkit-scrollbar { width: 4px; }
+#log-list::-webkit-scrollbar-thumb { background: rgba(217,119,6,0.4); border-radius: 2px; }
+.section-title {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  margin-bottom: 8px;
+}
+
+/* Card list */
+.card-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.card-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-1);
+  cursor: pointer;
+  display: flex; gap: 4px; align-items: center;
+}
+.card-chip.selected { background: var(--amber); color: #fff; border-color: var(--amber); }
+.card-chip.match::after { content: "★"; color: var(--amber); font-size: 9px; }
+.card-chip.selected.match::after { color: #fff; }
+.card-chip.wild { background: rgba(124,58,237,0.25); border-color: rgba(124,58,237,0.5); }
+.card-chip.wild.selected { background: var(--violet); }
+
+/* ---------------- Setup overlay ---------------- */
+#setup-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,22,40,0.96);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+#setup-panel {
+  width: 520px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 28px 32px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+#setup-panel h1 {
+  font-family: var(--font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: 0.3em;
+  text-align: center;
+  margin-bottom: 4px;
+}
+#setup-panel .subtitle {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-2);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+.setup-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+.setup-row label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.1em; min-width: 120px; }
+.setup-row select, .setup-row input[type=text] {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--panel-border);
+  color: var(--text-1);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  border-radius: 3px;
+  flex: 1;
+}
+.setup-row input[type=text]:focus, .setup-row select:focus { outline: none; border-color: var(--amber); }
+.player-slots { margin: 16px 0; border-top: 1px solid var(--divider); padding-top: 14px; }
+.player-slot {
+  display: grid;
+  grid-template-columns: 20px 1fr 80px 130px;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+}
+.player-slot .arch-desc {
+  grid-column: 2 / -1;
+  font-size: 10px;
+  color: var(--text-3);
+  line-height: 1.4;
+  margin-top: 2px;
+  min-height: 14px;
+}
+.player-slot .arch-era {
+  color: var(--amber);
+  font-weight: 600;
+}
+.player-slot select.p-arch:disabled {
+  opacity: 0.3;
+}
+.mood-badge { display: inline-block; font-family: var(--font-mono); font-size: 11px; }
+.rep-badge { display: inline-block; font-family: var(--font-mono); }
+.grudge-badge { color: var(--crimson); font-size: 9px; margin-left: 4px; font-weight: 700; }
+#last-game-summary {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-3);
+  margin-bottom: 10px;
+  min-height: 12px;
+}
+.entry.voice-intent { font-style: italic; color: var(--text-3); border-left: 2px solid var(--amber); padding-left: 6px; }
+.player-slot .swatch { width: 20px; height: 20px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.3); }
+.player-slot input[type=text] {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--panel-border);
+  color: var(--text-1);
+  padding: 5px 8px;
+  font-size: 12px;
+  border-radius: 3px;
+}
+.player-slot select {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--panel-border);
+  color: var(--text-1);
+  padding: 5px 8px;
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+/* ---------------- Toasts ---------------- */
+#toast-container {
+  position: fixed;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--panel-bg);
+  border-left: 3px solid var(--amber);
+  color: var(--text-1);
+  font-size: 12px;
+  padding: 10px 16px;
+  border-radius: 3px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  animation: toastIn 180ms ease-out, toastOut 240ms ease-in 2.76s forwards;
+  max-width: 440px;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+
+/* ---------------- Modal ---------------- */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 150;
+  backdrop-filter: blur(2px);
+}
+.modal {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 22px 26px;
+  min-width: 360px;
+  max-width: 520px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+}
+.modal h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  color: var(--amber);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.modal .subtext { font-size: 11px; color: var(--text-2); margin-bottom: 14px; line-height: 1.5; }
+.modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+
+/* Victory */
+#victory-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,22,40,0.96);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(6px);
+  animation: toastIn 400ms ease-out;
+}
+#victory-panel {
+  background: var(--panel-bg);
+  border: 2px solid var(--amber);
+  border-radius: 8px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow: 0 0 80px rgba(217,119,6,0.3);
+}
+#victory-panel .crown {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  letter-spacing: 0.5em;
+  color: var(--amber);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+#victory-panel .winner-color {
+  width: 80px; height: 80px;
+  margin: 0 auto 18px;
+  border-radius: 6px;
+  box-shadow: 0 0 40px currentColor;
+}
+#victory-panel h1 {
+  font-family: var(--font-serif);
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 8px;
+}
+#victory-panel .meta {
+  font-size: 12px;
+  color: var(--text-2);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.hidden { display: none !important; }
+
+/* ---------------- MOBILE RESPONSIVE ---------------- */
+
+/* Global: prevent overscroll bounce on iOS, smooth touch targets */
+html, body { overscroll-behavior: none; }
+button, input[type=checkbox], input[type=range], select, .btn, .card-chip, .node-group, #sidebar-tabs button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(217, 119, 6, 0.2);
+}
+
+/* Hidden-on-desktop helper (todo 19) */
+.hidden-desktop { display: none; }
+
+/* Sidebar tab bar — default desktop = hidden */
+#sidebar-tabs {
+  display: none;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid var(--divider);
+  flex-shrink: 0;
+}
+#sidebar-tabs button {
+  flex: 1;
+  padding: 14px 4px;
+  background: transparent;
+  color: var(--text-2);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  min-height: 44px;
+}
+#sidebar-tabs button.active {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
+}
+
+/* Phone-sized layouts: < 900px */
+@media (max-width: 899px) {
+  /* Flip shell to column: map on top, sidebar below (todo 2) */
+  #app {
+    flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  #map-area {
+    flex: 0 0 58vh;
+    width: 100vw;
+    min-height: 300px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+  #map-svg {
+    width: 100%;
+    height: 100%;
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+  #sidebar {
+    width: 100vw;
+    min-width: 0;
+    height: 42vh;
+    border-left: none;
+    border-top: 1px solid var(--panel-border);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* Tabs: show on mobile (todo 3) */
+  .hidden-desktop { display: flex; }
+  #sidebar-tabs { display: flex; }
+
+  /* Hide game-title on phone to save vertical space; keep for screen readers */
+  #game-title { display: none; }
+
+  /* Only show the active tab's panel-section */
+  #sidebar .panel-section[data-tab]:not(.active-tab) { display: none; }
+
+  /* Log scroll must still work inside its parent (todo 16 / item 16) */
+  #log-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #log-list { overflow-y: auto; flex: 1; }
+
+  /* Font size bumps (todo 8) */
+  #log-list { font-size: 13px; line-height: 1.6; }
+  .stat-row { font-size: 13px; }
+  .stat-row .lbl { font-size: 11px; }
+  .stat-row .val { font-size: 15px; }
+  #phase-label { font-size: 22px; }
+  #phase-help { font-size: 12px; }
+  .roster-row { font-size: 12px; }
+  .sel-display { font-size: 12px; }
+  #turn-info .name { font-size: 15px; }
+
+  /* Tap targets everywhere (todo 7) */
+  .btn { padding: 12px 18px; font-size: 12px; min-height: 44px; }
+  .card-chip {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 40px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .card-list { gap: 6px; }
+  .player-slot select, .player-slot input,
+  .setup-row select, .setup-row input {
+    padding: 10px 12px; font-size: 14px; min-height: 40px;
+  }
+  input[type=checkbox] { width: 24px; height: 24px; }
+
+  /* Dice: wrap + compact (todo 10) */
+  .dice-row { flex-wrap: wrap; justify-content: center; }
+  .die { width: 44px; height: 44px; padding: 5px; }
+  .die .pip { width: 5px; height: 5px; }
+
+  /* Mood/rep badges bigger (todo 17) */
+  .mood-badge, .rep-badge { font-size: 13px; }
+  .roster-row .rstat { font-size: 11px; }
+
+  /* Slider thumb larger for touch (todo 15) */
+  .slider-row input[type=range] { height: 32px; }
+}
+
+/* Very narrow phones / sub-640 touches */
+@media (max-width: 640px) {
+  /* Setup panel fluid (todo 5) */
+  #setup-panel {
+    width: 100%;
+    max-width: calc(100vw - 16px);
+    padding: 20px 16px;
+    margin: 8px;
+  }
+  #setup-panel h1 { font-size: 32px; letter-spacing: 0.2em; }
+  .setup-row { flex-direction: column; align-items: stretch; gap: 4px; }
+  .setup-row label { min-width: 0; }
+  .player-slot {
+    grid-template-columns: 16px 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 6px 8px;
+  }
+  .player-slot .swatch { grid-column: 1; grid-row: 1; }
+  .player-slot .p-name { grid-column: 2; grid-row: 1; }
+  .player-slot .p-role { grid-column: 1 / -1; grid-row: 2; }
+  .player-slot .p-arch { grid-column: 1 / -1; grid-row: 3; }
+  .player-slot .arch-desc { grid-column: 1 / -1; grid-row: 4; }
+
+  /* Modals mobile-sized (todo 6) */
+  .modal {
+    width: 92vw;
+    max-width: 420px;
+    min-width: 0;
+    padding: 18px 16px;
+  }
+  .modal-buttons {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+  .modal-buttons .btn { width: 100%; margin: 0; }
+
+  /* Victory panel (todo 12) */
+  #victory-panel { padding: 28px 20px; width: 92vw; }
+  #victory-panel h1 { font-size: 32px; }
+  #victory-panel .winner-color { width: 60px; height: 60px; }
+}
+
+/* Tall portrait phones: give more room to the sidebar (todo 2) */
+@media (max-width: 899px) and (max-aspect-ratio: 3/5) {
+  #map-area { flex: 0 0 55vh; }
+  #sidebar { height: 45vh; }
+}
+
+/* Landscape phone: revert to side-by-side, compress sidebar (todo 2) */
+@media (max-width: 899px) and (orientation: landscape) {
+  #app { flex-direction: row; }
+  #map-area {
+    flex: 1;
+    width: auto;
+    min-height: 0;
+  }
+  #sidebar {
+    width: 280px;
+    min-width: 280px;
+    height: 100vh;
+    border-left: 1px solid var(--panel-border);
+    border-top: none;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="map-area">
+    <svg id="map-svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <aside id="sidebar">
+    <div id="game-title">RISK</div>
+    <div id="sidebar-tabs" class="hidden-desktop" role="tablist">
+      <button type="button" data-tab="turn" class="active">Turn</button>
+      <button type="button" data-tab="controls">Action</button>
+      <button type="button" data-tab="roster">Roster</button>
+      <button type="button" data-tab="feed">Feed</button>
+    </div>
+    <div class="panel-section" id="turn-panel" data-tab="turn">
+      <div id="turn-info">
+        <div class="swatch" id="turn-swatch"></div>
+        <div class="name" id="turn-name">—</div>
+        <div class="turn-num" id="turn-num">Turn 1</div>
+      </div>
+    </div>
+    <div class="panel-section" id="phase-panel" data-tab="controls">
+      <div id="phase-label">SETUP</div>
+      <div id="phase-help">Preparing the world…</div>
+    </div>
+    <div class="panel-section" id="controls-panel" data-tab="controls"></div>
+    <div class="panel-section" data-tab="roster">
+      <div class="section-title">Powers</div>
+      <div class="roster" id="roster"></div>
+    </div>
+    <div class="panel-section" id="log-section" data-tab="feed">
+      <div class="section-title">Intelligence Feed</div>
+      <div id="log-list"></div>
+    </div>
+  </aside>
+</div>
+
+<div id="setup-overlay">
+  <div id="setup-panel">
+    <h1>RISK</h1>
+    <div class="subtitle">Cold War Edition</div>
+    <div id="last-game-summary"></div>
+    <div class="setup-row">
+      <label for="classic-mode">Classic mode</label>
+      <input type="checkbox" id="classic-mode" style="flex:0">
+      <span style="flex:1;font-size:10px;color:var(--text-3);margin-left:8px">Disable archetypes (original heuristic).</span>
+    </div>
+    <div class="setup-row">
+      <label for="persist-enabled">Track records</label>
+      <input type="checkbox" id="persist-enabled" style="flex:0">
+      <span style="flex:1;font-size:10px;color:var(--text-3);margin-left:8px">Save W/L history locally.</span>
+    </div>
+    <div class="setup-row">
+      <label for="player-count">Players</label>
+      <select id="player-count">
+        <option value="3">3 Players (35 armies each)</option>
+        <option value="4" selected>4 Players (30 armies each)</option>
+        <option value="5">5 Players (25 armies each)</option>
+        <option value="6">6 Players (20 armies each)</option>
+      </select>
+    </div>
+    <div class="player-slots" id="player-slots"></div>
+    <button class="btn full" id="start-game-btn">Start Game</button>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<div id="modal-root"></div>
+<div id="victory-root"></div>
+
+<script>
+"use strict";
+
+// === MARKER: module-defs ===
+/* =========================================================================
+   KYZLO MODULE REGISTRY — Hooks, Scoring, Decision, RenderExt
+   ========================================================================= */
+
+// ── Shared hook registry ─────────────────────────────────────────────
+const Hooks = (() => {
+  const bus = {};
+  const inFlight = new Set();
+  return {
+    on(event, fn) { (bus[event] ||= []).push(fn); },
+    emit(event, payload) {
+      if (!bus[event]) return;
+      if (inFlight.has(event)) return; // depth guard
+      inFlight.add(event);
+      try {
+        for (const fn of bus[event]) {
+          try { fn(payload); } catch (e) { console.error(`[${event}]`, e); }
+        }
+      } finally { inFlight.delete(event); }
+    },
+  };
+})();
+
+// ── Shared scoring registry ──────────────────────────────────────────
+const Scoring = (() => {
+  const reinforceMods = [];
+  const attackMods = [];
+  const fortifyMods = [];
+  return {
+    addReinforceModifier(fn) { reinforceMods.push(fn); },
+    addAttackModifier(fn) { attackMods.push(fn); },
+    addFortifyModifier(fn) { fortifyMods.push(fn); },
+    applyReinforce(name, player, base) {
+      if (!player) return base;
+      return reinforceMods.reduce((s, fn) => s + (fn(name, player, s) || 0), base);
+    },
+    applyAttack(src, tgt, player, base) {
+      if (!player) return base;
+      return attackMods.reduce((s, fn) => s + (fn(src, tgt, player, s) || 0), base);
+    },
+    applyFortify(src, tgt, player, base) {
+      if (!player) return base;
+      return fortifyMods.reduce((s, fn) => s + (fn(src, tgt, player, s) || 0), base);
+    },
+  };
+})();
+
+// ── Decision picker: defaults to argmax; Personality module overrides ──
+const Decision = (() => {
+  let pickFn = (options) => {
+    if (!options.length) return null;
+    options.sort((a, b) => b.score - a.score);
+    return options[0];
+  };
+  return {
+    setPicker(fn) { pickFn = fn; },
+    pick(options, ctx) { return pickFn(options, ctx); },
+  };
+})();
+
+// ── Render extension registries ──────────────────────────────────────
+const RenderExt = (() => {
+  const rosterBadges = [];
+  const mapOverlays = [];
+  const logFilters = [];
+  return {
+    addRosterBadge(fn) { rosterBadges.push(fn); },
+    addMapOverlay(fn) { mapOverlays.push(fn); },
+    addLogFilter(fn) { logFilters.push(fn); },
+    roster(player) { return rosterBadges.map(fn => { try { return fn(player) || ""; } catch(e){ return ""; } }).join(""); },
+    overlays(svg) { for (const fn of mapOverlays) { try { fn(svg); } catch(e){} } },
+    filterLog(msg, ctx) {
+      return logFilters.reduce((m, fn) => { try { return fn(m, ctx) ?? m; } catch(e){ return m; } }, msg);
+    },
+  };
+})();
+
+function _clampNum(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* =========================================================================
+   ARCHETYPE CATALOG (Spec 02)
+   ========================================================================= */
+const Arch = {
+  dilettante: {
+    id: "dilettante", name: "The Dilettante", era: "Average Player", color: "#94a3b8",
+    description: "Competent, unremarkable. The baseline.",
+    weights: {
+      reinforce: { adjEnemies: 1, maxEnemyArmies: 1, continentBorder: 1, nearContinent: 1, adjFriendly: 1 },
+      attack: { completeContinent: 1, breakContinent: 1, eliminate: 1, armyAdvantage: 1, hopelessPenalty: 1 },
+      grudge: 0.2, reputation: 0.3, goalWeight: 0.3,
+    },
+    temperature: 1.2, mistakeRate: 0.08, fatigueRate: 0.003, lossAversion: 1.1,
+    rubberBand: { leaderBonus: 0.2, trailerBonus: -0.1 },
+    voice: { prefix: "", speechLevel: "neutral" },
+    mood: { onWin: "neutral", onLoss: "neutral", onCapture: "content", onAttacked: "annoyed", default: "neutral" },
+    openingBook: null, ruleMods: null, preferredContinent: null, goalBias: null,
+  },
+  napoleon: {
+    id: "napoleon", name: "Bonaparte", era: "French Empire, 1809", color: "#c0392b",
+    description: "Demands decisive engagements. Despises timid defense.",
+    weights: {
+      reinforce: { adjEnemies: 1.4, maxEnemyArmies: 0.7, continentBorder: 1.5, nearContinent: 1.8, adjFriendly: 0.5 },
+      attack: { completeContinent: 1.5, breakContinent: 1.3, eliminate: 1.2, armyAdvantage: 0.8, hopelessPenalty: 0.7 },
+      grudge: 0.5, reputation: 0.1, goalWeight: 1.0,
+    },
+    temperature: 0.8, mistakeRate: 0.04, fatigueRate: 0.001, lossAversion: 0.8,
+    rubberBand: { leaderBonus: 0.1, trailerBonus: -0.3 },
+    voice: { prefix: "The Emperor", speechLevel: "regal" },
+    mood: { onWin: "triumphant", onLoss: "furious", onCapture: "victorious", onAttacked: "insulted", default: "confident" },
+    openingBook: "europe-blitz", ruleMods: null, preferredContinent: "EU", goalBias: "holdContinent",
+  },
+  fortress: {
+    id: "fortress", name: "The Fortress", era: "Maginot Doctrine", color: "#475569",
+    description: "Walls high, patience eternal. Strikes only with overwhelming force.",
+    weights: {
+      reinforce: { adjEnemies: 1.8, maxEnemyArmies: 2.0, continentBorder: 2.0, nearContinent: 0.6, adjFriendly: 0.3 },
+      attack: { completeContinent: 1.0, breakContinent: 0.5, eliminate: 0.6, armyAdvantage: 1.8, hopelessPenalty: 2.0 },
+      grudge: 0.1, reputation: 0.6, goalWeight: 0.8,
+    },
+    temperature: 0.5, mistakeRate: 0.02, fatigueRate: 0.0005, lossAversion: 1.6,
+    rubberBand: { leaderBonus: 0.0, trailerBonus: 0.0 },
+    voice: { prefix: "The garrison", speechLevel: "terse" },
+    mood: { onWin: "stoic", onLoss: "stoic", onCapture: "satisfied", onAttacked: "alert", default: "watchful" },
+    openingBook: "continent-fortress", ruleMods: null, preferredContinent: null, goalBias: "survive",
+  },
+  jackal: {
+    id: "jackal", name: "The Jackal", era: "Scavenger Doctrine", color: "#d97706",
+    description: "Farms the wounded. Never picks a fair fight.",
+    weights: {
+      reinforce: { adjEnemies: 0.8, maxEnemyArmies: 0.4, continentBorder: 0.3, nearContinent: 0.6, adjFriendly: 1.2 },
+      attack: { completeContinent: 0.5, breakContinent: 0.8, eliminate: 2.2, armyAdvantage: 1.8, hopelessPenalty: 1.5 },
+      grudge: 0.1, reputation: 0.2, goalWeight: 1.2,
+    },
+    temperature: 1.0, mistakeRate: 0.05, fatigueRate: 0.001, lossAversion: 1.3,
+    rubberBand: { leaderBonus: 0.3, trailerBonus: -0.2 },
+    voice: { prefix: "", speechLevel: "mocking" },
+    mood: { onWin: "hungry", onLoss: "slinking", onCapture: "gorged", onAttacked: "baring-teeth", default: "stalking" },
+    openingBook: null, ruleMods: null, preferredContinent: null, goalBias: "eliminateFirst",
+  },
+  vengeful: {
+    id: "vengeful", name: "The Tsar", era: "Romanov Era", color: "#7c3aed",
+    description: "Forgets nothing. Reciprocates with interest.",
+    weights: {
+      reinforce: { adjEnemies: 1.2, maxEnemyArmies: 1.3, continentBorder: 1.0, nearContinent: 1.0, adjFriendly: 0.8 },
+      attack: { completeContinent: 0.9, breakContinent: 1.4, eliminate: 1.0, armyAdvantage: 1.0, hopelessPenalty: 0.9 },
+      grudge: 2.5, reputation: 0.8, goalWeight: 0.7,
+    },
+    temperature: 0.9, mistakeRate: 0.04, fatigueRate: 0.002, lossAversion: 1.2,
+    rubberBand: { leaderBonus: 0.0, trailerBonus: -0.4 },
+    voice: { prefix: "The Tsar", speechLevel: "regal" },
+    mood: { onWin: "vindicated", onLoss: "seething", onCapture: "cold-smile", onAttacked: "incensed", default: "brooding" },
+    openingBook: null, ruleMods: { reinforceBonus: 1, reinforceLossPerAttack: 1 }, preferredContinent: null, goalBias: "breakBonuses",
+  },
+  patient: {
+    id: "patient", name: "The Patriarch", era: "Long Game", color: "#059669",
+    description: "The early game is theater. The late game is theirs.",
+    weights: {
+      reinforce: { adjEnemies: 1.1, maxEnemyArmies: 1.1, continentBorder: 1.3, nearContinent: 1.0, adjFriendly: 0.7 },
+      attack: { completeContinent: 1.2, breakContinent: 1.1, eliminate: 1.0, armyAdvantage: 1.3, hopelessPenalty: 1.4 },
+      grudge: 0.3, reputation: 0.5, goalWeight: 0.9,
+    },
+    temperature: 0.7, mistakeRate: 0.03, fatigueRate: -0.001, lossAversion: 1.3,
+    rubberBand: { leaderBonus: 0.0, trailerBonus: -0.1 },
+    voice: { prefix: "", speechLevel: "sage" },
+    mood: { onWin: "serene", onLoss: "patient", onCapture: "nodding", onAttacked: "unmoved", default: "meditative" },
+    openingBook: "patient-build", ruleMods: null, preferredContinent: null, goalBias: "survive",
+  },
+  shogun: {
+    id: "shogun", name: "The Shogun", era: "Sengoku Period", color: "#0ea5e9",
+    description: "Strikes only when armies are ready. Honor in restraint.",
+    weights: {
+      reinforce: { adjEnemies: 1.3, maxEnemyArmies: 1.2, continentBorder: 1.2, nearContinent: 1.1, adjFriendly: 0.6 },
+      attack: { completeContinent: 1.1, breakContinent: 1.0, eliminate: 0.8, armyAdvantage: 1.6, hopelessPenalty: 1.3 },
+      grudge: 0.4, reputation: 0.7, goalWeight: 0.8,
+    },
+    temperature: 0.6, mistakeRate: 0.02, fatigueRate: 0.001, lossAversion: 1.4,
+    rubberBand: { leaderBonus: 0.0, trailerBonus: 0.0 },
+    voice: { prefix: "", speechLevel: "formal" },
+    mood: { onWin: "composed", onLoss: "dishonored", onCapture: "bowed", onAttacked: "drawn-blade", default: "still" },
+    openingBook: "asian-pivot", ruleMods: { minAttackStack: 4 }, preferredContinent: "AS", goalBias: "holdContinent",
+  },
+  hermit: {
+    id: "hermit", name: "The Hermit", era: "Isolationist", color: "#ec4899",
+    description: "Builds in silence. Emerges with overwhelming force.",
+    weights: {
+      reinforce: { adjEnemies: 1.0, maxEnemyArmies: 1.4, continentBorder: 2.2, nearContinent: 0.5, adjFriendly: 0.3 },
+      attack: { completeContinent: 1.4, breakContinent: 0.9, eliminate: 0.7, armyAdvantage: 2.0, hopelessPenalty: 1.8 },
+      grudge: 0.1, reputation: 0.4, goalWeight: 1.0,
+    },
+    temperature: 0.7, mistakeRate: 0.03, fatigueRate: -0.0005, lossAversion: 1.5,
+    rubberBand: { leaderBonus: 0.0, trailerBonus: 0.0 },
+    voice: { prefix: "", speechLevel: "sparse" },
+    mood: { onWin: "indifferent", onLoss: "withdrawn", onCapture: "disturbed", onAttacked: "roused", default: "withdrawn" },
+    openingBook: "isolation", ruleMods: { noAttackBeforeTurn: 5 }, preferredContinent: null, goalBias: "survive",
+  },
+  prophet: {
+    id: "prophet", name: "The Prophet", era: "Divine Mandate", color: "#f59e0b",
+    description: "The dice bow before destiny.",
+    weights: {
+      reinforce: { adjEnemies: 1.0, maxEnemyArmies: 0.9, continentBorder: 1.2, nearContinent: 1.4, adjFriendly: 0.8 },
+      attack: { completeContinent: 1.3, breakContinent: 1.1, eliminate: 1.1, armyAdvantage: 0.9, hopelessPenalty: 0.6 },
+      grudge: 0.3, reputation: 0.2, goalWeight: 1.1,
+    },
+    temperature: 1.1, mistakeRate: 0.06, fatigueRate: 0.002, lossAversion: 0.7,
+    rubberBand: { leaderBonus: 0.2, trailerBonus: -0.2 },
+    voice: { prefix: "", speechLevel: "prophetic" },
+    mood: { onWin: "rapturous", onLoss: "tested", onCapture: "ascendant", onAttacked: "wrathful", default: "luminous" },
+    openingBook: null, ruleMods: { rerollOneLoss: true }, preferredContinent: null, goalBias: "holdContinent",
+  },
+};
+Arch.get = function (id) { return id && Arch[id] ? Arch[id] : null; };
+Arch.list = function () {
+  return ["dilettante", "napoleon", "fortress", "jackal", "vengeful", "patient", "shogun", "hermit", "prophet"];
+};
+
+/* =========================================================================
+   PERSONA — WEIGHTED SCORING + SOFTMAX DECISION (Spec 03)
+   ========================================================================= */
+const Persona = {
+  attach(player, archId) {
+    const arch = Arch.get(archId);
+    player.personality = arch;
+    player.runtimeWeights = arch ? JSON.parse(JSON.stringify(arch.weights)) : null;
+    player.runtimeTemperature = arch ? arch.temperature : 1.0;
+    player.regretTempAccum = 0;
+    player.mood = arch?.mood?.default || "neutral";
+  },
+  w(player, path) {
+    if (!player || !player.runtimeWeights) return 1.0;
+    const parts = path.split(".");
+    let cur = player.runtimeWeights;
+    for (const p of parts) { cur = cur?.[p]; if (cur == null) return 1.0; }
+    return typeof cur === "number" ? cur : 1.0;
+  },
+  temperature(player) {
+    if (!player || !player.personality) return 1.0;
+    const base = player.runtimeTemperature ?? player.personality.temperature;
+    return Math.max(0.1, base);
+  },
+  mistakeRate(player, turn) {
+    if (!player || !player.personality) return 0;
+    if (player._mercyMistakeRate != null) return player._mercyMistakeRate;
+    const r = player.personality;
+    return Math.min(0.5, Math.max(0, r.mistakeRate + r.fatigueRate * ((turn||1) - 1)));
+  },
+};
+
+Decision.setPicker((options, ctx) => {
+  if (!options.length) return null;
+  const player = ctx?.player;
+  if (!player || !player.personality) {
+    options.sort((a, b) => b.score - a.score);
+    return options[0];
+  }
+  const r = Persona.mistakeRate(player, state?.turn ?? 1);
+  if (Math.random() < r) {
+    const top = options.slice().sort((a, b) => b.score - a.score).slice(0, 5);
+    return top[Math.floor(Math.random() * top.length)];
+  }
+  const T = Persona.temperature(player);
+  const maxScore = Math.max(...options.map(o => o.score));
+  const weights = options.map(o => Math.exp((o.score - maxScore) / T));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (sum === 0 || !isFinite(sum)) {
+    options.sort((a, b) => b.score - a.score);
+    return options[0];
+  }
+  let rr = Math.random() * sum;
+  for (let i = 0; i < options.length; i++) {
+    rr -= weights[i];
+    if (rr <= 0) return options[i];
+  }
+  return options[options.length - 1];
+});
+
+/* =========================================================================
+   VOICE — NARRATION TEMPLATES (Spec 13)
+   ========================================================================= */
+const Voice = (() => {
+  const packs = {
+    napoleon: {
+      deploy: ["The Emperor masses {n} at {terr}.", "Bonaparte stations {n} in {terr}.", "Troops stream into {terr}."],
+      attack: ["The Grand Armée strikes {target} from {source}!", "{target} stands before the Emperor."],
+      capture: ["{target} falls. The Empire expands.", "Another prize for France. {target} is ours."],
+      fortify: ["The Emperor consolidates — {count} legionnaires shift to {target}.", "Tactical reposition: {count} to {target}."],
+      trade: ["Spoils of war. +{value} reinforcements to the Emperor.", "Intelligence sold. +{value} to the Empire's coffers."],
+      eliminate: ["Another crown falls. {name} is no more.", "The Emperor removes {name} from the map."],
+      intent_aggressive: ["The Emperor masses at {source}. {target} will fall.", "Bonaparte's eye is on {target}."],
+      intent_defensive: ["The Emperor consolidates. Patience precedes the strike.", "Bonaparte holds, for now."],
+      outcome_success: ["The Empire extends its reach. {target} is taken.", "As promised. {target} is French."],
+      outcome_thwarted: ["A temporary setback. {target} will yet be taken.", "Fortune hides her face — for now."],
+      outcome_disaster: ["The Emperor is unamused.", "Blood has been spent. It will be repaid."],
+    },
+    fortress: {
+      deploy: ["{terr} garrison grows by {n}.", "Reinforcements settle into {terr}."],
+      attack: ["{source} strikes {target}.", "Overwhelming force committed to {target}."],
+      capture: ["{target} taken. Position consolidated.", "{target} secured."],
+      fortify: ["{count} redeploy to {target}.", "Garrison adjusts."],
+      trade: ["Set traded: +{value} to the garrison."],
+      eliminate: ["{name} neutralized."],
+      intent_aggressive: ["{source} prepares. {target} within reach.", "A strike is planned."],
+      intent_defensive: ["The garrison holds. Patience is strategy.", "{reinforceFocus} receives additional troops."],
+      outcome_success: ["Objective met."],
+      outcome_thwarted: ["Position held. No progress."],
+      outcome_disaster: ["Casualties sustained. Withdrawing."],
+    },
+    jackal: {
+      deploy: ["{terr} gets {n} — hungry dogs.", "{n} scavengers settle in {terr}."],
+      attack: ["The Jackal pounces on {target}!", "{target} looks wounded from here..."],
+      capture: ["Scraps are good eating. {target} devoured.", "{target} — easy meat."],
+      fortify: ["{count} skulk into {target}."],
+      trade: ["Spoils sorted. +{value}."],
+      eliminate: ["{name} bleeds out. The pack feasts."],
+      intent_aggressive: ["The Jackal smells weakness. {target} tonight.", "Weakest first — {target}."],
+      intent_defensive: ["The Jackal watches. Waits. Bides."],
+      outcome_success: ["Fed well tonight.", "Easier than expected. {target} gone."],
+      outcome_thwarted: ["The prey got away this time."],
+      outcome_disaster: ["Wounded. Retreating to lick."],
+    },
+    vengeful: {
+      deploy: ["The Tsar posts {n} to {terr}. Remembering.", "{terr} fortified. {n} more swords."],
+      attack: ["The Tsar's wrath descends on {target}.", "Vengeance rides from {source}."],
+      capture: ["{target} taken. The ledger balances — partly.", "{target} falls. More to come."],
+      fortify: ["{count} march to {target}. The wheel turns."],
+      trade: ["Intelligence, purchased in blood. +{value}."],
+      eliminate: ["{name} pays in full.", "The Tsar crosses {name} off the list."],
+      intent_aggressive: ["The Tsar has not forgotten. {target} answers today.", "Old scores come due at {target}."],
+      intent_defensive: ["The Tsar waits. The debt compounds."],
+      outcome_success: ["Justice, served cold. {target} is taken."],
+      outcome_thwarted: ["The Tsar's memory is long. Today is not the day."],
+      outcome_disaster: ["Blood for blood. The reckoning is only delayed."],
+    },
+    patient: {
+      deploy: ["{n} arrives at {terr}. The slow work continues.", "{terr} deepens by {n}."],
+      attack: ["{source} tests {target}.", "A measured strike on {target}."],
+      capture: ["{target} joins the flock.", "The tree grows. {target} added."],
+      fortify: ["The shepherd reshapes the flock — {count} to {target}."],
+      trade: ["The harvest comes in. +{value}."],
+      eliminate: ["{name}'s time was shorter than expected."],
+      intent_aggressive: ["The time is ripe. {target}.", "{source} moves today. Slowly, deliberately."],
+      intent_defensive: ["Seasons come. Seasons go. {reinforceFocus} is tended."],
+      outcome_success: ["As foreseen. {target}."],
+      outcome_thwarted: ["Another season will do."],
+      outcome_disaster: ["An early frost. The tree endures."],
+    },
+    shogun: {
+      deploy: ["The Shogun posts {n} to {terr}.", "Honor reinforces {terr} — {n} samurai."],
+      attack: ["Steel flashes. {source} attacks {target}.", "The Shogun commits banners at {target}."],
+      capture: ["{target} submits. Honor upheld.", "{target} bows."],
+      fortify: ["{count} retainers shift to {target}."],
+      trade: ["Tribute received. +{value}."],
+      eliminate: ["{name} is dismissed from the field."],
+      intent_aggressive: ["The Shogun's banner rises over {source}. {target} is today's duty.", "A worthy strike — {target}."],
+      intent_defensive: ["The blade is sheathed. For now."],
+      outcome_success: ["{target} bows to the Shogun."],
+      outcome_thwarted: ["Honor unstained. The strike is postponed."],
+      outcome_disaster: ["A dishonor. Meditation follows."],
+    },
+    hermit: {
+      deploy: ["{n} arrives at {terr}.", "{terr} +{n}."],
+      attack: ["{source} → {target}."],
+      capture: ["{target}. Taken."],
+      fortify: ["{count} → {target}."],
+      trade: ["Trade: +{value}."],
+      eliminate: ["{name}: removed."],
+      intent_aggressive: ["The hermit emerges. {target}.", "Silence ends at {target}."],
+      intent_defensive: ["The hermit withdraws.", "Quiet turns."],
+      outcome_success: ["{target}: done."],
+      outcome_thwarted: ["Retreat."],
+      outcome_disaster: ["Wounded. Returning to the cave."],
+    },
+    prophet: {
+      deploy: ["The Chosen sanctifies {terr} with {n}.", "{terr} receives {n} faithful."],
+      attack: ["{source} rises against {target} — faith over fortune!", "Destiny calls at {target}."],
+      capture: ["{target} joins the flock. All was foretold.", "The heavens open. {target} is ours."],
+      fortify: ["{count} faithful walk to {target}."],
+      trade: ["Divine providence. +{value}."],
+      eliminate: ["{name}'s heresy ends.", "{name}: judged."],
+      intent_aggressive: ["The Chosen sees a vision — {target}.", "Destiny at {target}."],
+      intent_defensive: ["The Chosen prepares {reinforceFocus}. The hour approaches."],
+      outcome_success: ["Foretold. {target} is the Chosen's."],
+      outcome_thwarted: ["The vision clouds. The hour is not yet."],
+      outcome_disaster: ["A trial. Faith persists."],
+    },
+    dilettante: null,
+  };
+
+  function pick(archId, category) {
+    const pack = packs[archId];
+    if (!pack || !pack[category]) return null;
+    const arr = pack[category];
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+  function fill(template, vars) {
+    return template.replace(/\{(\w+)\}/g, (_, k) => (vars && vars[k] != null) ? vars[k] : "");
+  }
+
+  return {
+    translate(msg, ctx) {
+      if (!ctx || !ctx.player?.personality?.id) return msg;
+      const t = pick(ctx.player.personality.id, ctx.category);
+      if (!t) return msg;
+      return fill(t, ctx.vars || {});
+    },
+    declareIntent(player, plan) {
+      if (!player?.personality?.id) return null;
+      const category = plan.kind === "aggressive" ? "intent_aggressive" : "intent_defensive";
+      const t = pick(player.personality.id, category);
+      if (!t) return null;
+      return fill(t, {
+        source: plan.primary?.source || "",
+        target: plan.primary?.target || "",
+        reinforceFocus: plan.reinforceFocus || "",
+      });
+    },
+    reactToOutcome(player, plan, outcome) {
+      if (!player?.personality?.id) return null;
+      const t = pick(player.personality.id, "outcome_" + outcome);
+      if (!t) return null;
+      return fill(t, {
+        source: plan.primary?.source || "",
+        target: plan.primary?.target || "",
+      });
+    },
+  };
+})();
+
+function flog(category, vars, player) {
+  try {
+    const voiceLine = Voice.translate(null, { player, category, vars });
+    if (voiceLine) { log(voiceLine); return; }
+  } catch(e){}
+  const fallbacks = {
+    deploy: `${player?.name || "?"} deploys ${vars.n || 1} to ${vars.terr}.`,
+    attack: `${vars.source} attacks ${vars.target}.`,
+    capture: `${vars.target} captured!`,
+    fortify: `${player?.name || "?"} moves ${vars.count} to ${vars.target}.`,
+    trade: `${player?.name || "?"} trades a set for +${vars.value} armies.`,
+    eliminate: `${vars.name} has been eliminated.`,
+  };
+  log(fallbacks[category] || "");
+}
+
+/* =========================================================================
+   REPUTATION (Spec 09)
+   ========================================================================= */
+const Rep = (() => {
+  const DECAY = 0.02;
+  const ATTACK_COST = 0.25;
+  const ELIMINATE_BONUS = 1.0;
+  const PEACE_GROWTH = 0.05;
+
+  function ensureMatrix() {
+    if (!state) return;
+    if (!state.reputation) state.reputation = {};
+    for (const a of state.players) {
+      state.reputation[a.id] = state.reputation[a.id] || {};
+      for (const b of state.players) {
+        if (a.id === b.id) continue;
+        if (state.reputation[a.id][b.id] == null) {
+          state.reputation[a.id][b.id] = a.isAI && !b.isAI ? -0.15 : 0;
+        }
+      }
+    }
+  }
+  function clamp(v) { return Math.max(-1, Math.min(1, v)); }
+  function adjacentToAny(observerId, targetId) {
+    for (const name of TERR_ORDER) {
+      const t = state.territories[name];
+      if (t.owner !== observerId) continue;
+      for (const adj of t.adj) {
+        if (state.territories[adj].owner === targetId) return true;
+      }
+    }
+    return false;
+  }
+  return {
+    init() { ensureMatrix(); },
+    onAttack(attackerId, defenderId) {
+      ensureMatrix();
+      const cur = state.reputation[attackerId][defenderId] ?? 0;
+      state.reputation[attackerId][defenderId] = clamp(cur - ATTACK_COST);
+      const cur2 = state.reputation[defenderId][attackerId] ?? 0;
+      state.reputation[defenderId][attackerId] = clamp(cur2 - ATTACK_COST * 1.2);
+    },
+    onEliminate(attackerId, defenderId) {
+      ensureMatrix();
+      const cur = state.reputation[attackerId][defenderId] ?? 0;
+      state.reputation[attackerId][defenderId] = clamp(cur - ELIMINATE_BONUS);
+      for (const p of state.players) {
+        if (p.id === attackerId || p.eliminated) continue;
+        if (adjacentToAny(p.id, attackerId)) {
+          const c = state.reputation[p.id][attackerId] ?? 0;
+          state.reputation[p.id][attackerId] = clamp(c - 0.1);
+        }
+      }
+    },
+    tick() {
+      ensureMatrix();
+      for (const a of state.players) {
+        if (a.eliminated) continue;
+        for (const b of state.players) {
+          if (a.id === b.id || b.eliminated) continue;
+          let r = state.reputation[a.id][b.id] ?? 0;
+          r = r > 0 ? Math.max(0, r - DECAY) : Math.min(0, r + DECAY);
+          if (adjacentToAny(a.id, b.id)) r = clamp(r + PEACE_GROWTH);
+          state.reputation[a.id][b.id] = r;
+        }
+      }
+    },
+    get(observerId, targetId) {
+      return state?.reputation?.[observerId]?.[targetId] ?? 0;
+    },
+    symbol(observerId, targetId) {
+      const r = Rep.get(observerId, targetId);
+      if (r > 0.5) return "★";
+      if (r > 0.15) return "·";
+      if (r > -0.15) return "—";
+      if (r > -0.5) return "·";
+      return "×";
+    },
+  };
+})();
+
+/* =========================================================================
+   GRUDGE MEMORY (Spec 10)
+   ========================================================================= */
+const Grudge = (() => {
+  const DECAY_PER_TURN = 0.25;
+  const TERRITORY_LOST = 1.0;
+  const ARMY_LOST = 0.05;
+  const MIN_ACTIVE = 0.1;
+  return {
+    record(victim, attackerId, armyLosses, territoryLost) {
+      if (!victim) return;
+      if (!victim.grudges) victim.grudges = {};
+      const g = victim.grudges[attackerId] || { severity: 0, turn: state.turn };
+      g.severity += armyLosses * ARMY_LOST + (territoryLost ? TERRITORY_LOST : 0);
+      g.turn = state.turn;
+      victim.grudges[attackerId] = g;
+    },
+    severity(player, attackerId) {
+      const g = player?.grudges?.[attackerId];
+      return g ? g.severity : 0;
+    },
+    tick() {
+      for (const p of state.players) {
+        if (!p.grudges) continue;
+        for (const aid of Object.keys(p.grudges)) {
+          p.grudges[aid].severity *= (1 - DECAY_PER_TURN);
+          if (p.grudges[aid].severity < MIN_ACTIVE) delete p.grudges[aid];
+        }
+      }
+    },
+  };
+})();
+
+/* =========================================================================
+   CAMPAIGN GOALS (Spec 11)
+   ========================================================================= */
+const Goal = (() => {
+  const GoalTypes = {
+    HOLD_CONTINENT: "hold-continent",
+    ELIMINATE_FIRST: "eliminate-first",
+    SURVIVE_WITH: "survive-with",
+    BREAK_BONUSES: "break-bonuses",
+    CAPTURE_CAPITAL: "capture-capital",
+  };
+  function randomContinent() {
+    const ids = Object.keys(CONTINENTS);
+    return ids[Math.floor(Math.random() * ids.length)];
+  }
+  function assign(player) {
+    if (!player.personality) return null;
+    const bias = player.personality.goalBias;
+    const cont = player.personality.preferredContinent || randomContinent();
+    switch (bias) {
+      case "holdContinent":
+        return { type: GoalTypes.HOLD_CONTINENT, params: { continent: cont, byTurn: 10 + Math.floor(Math.random() * 5) } };
+      case "eliminateFirst":
+        return { type: GoalTypes.ELIMINATE_FIRST, params: {} };
+      case "survive":
+        return { type: GoalTypes.SURVIVE_WITH, params: { turn: 15, minTerritories: 8 + Math.floor(Math.random() * 4) } };
+      case "breakBonuses":
+        return { type: GoalTypes.BREAK_BONUSES, params: { count: 2 + Math.floor(Math.random() * 2) } };
+      default: {
+        const roll = Math.random();
+        if (roll < 0.4) return { type: GoalTypes.HOLD_CONTINENT, params: { continent: cont, byTurn: 12 } };
+        if (roll < 0.7) return { type: GoalTypes.SURVIVE_WITH, params: { turn: 12, minTerritories: 10 } };
+        return { type: GoalTypes.ELIMINATE_FIRST, params: {} };
+      }
+    }
+  }
+  function progress(player) {
+    if (!player.goal) return 0;
+    const g = player.goal;
+    switch (g.type) {
+      case GoalTypes.HOLD_CONTINENT: {
+        const ts = TERR_ORDER.filter(n => state.territories[n].continent === g.params.continent);
+        const owned = ts.filter(n => state.territories[n].owner === player.id).length;
+        return owned / ts.length;
+      }
+      case GoalTypes.ELIMINATE_FIRST:
+        return state.players.some(p => p.eliminated) ? 1.0 : 0;
+      case GoalTypes.SURVIVE_WITH: {
+        const t = state.turn;
+        const owned = ownedBy(player.id).length;
+        return Math.min(1, t / g.params.turn) * Math.min(1, owned / g.params.minTerritories);
+      }
+      case GoalTypes.BREAK_BONUSES:
+        return Math.min(1, (player.goalProgress || 0) / g.params.count);
+      case GoalTypes.CAPTURE_CAPITAL:
+        return state.territories[g.params.territory]?.owner === player.id ? 1 : 0;
+    }
+    return 0;
+  }
+  function isComplete(player) {
+    if (!player.goal) return false;
+    const g = player.goal;
+    if (g.type === GoalTypes.HOLD_CONTINENT) return progress(player) >= 1 && state.turn <= g.params.byTurn;
+    if (g.type === GoalTypes.SURVIVE_WITH) return state.turn >= g.params.turn && ownedBy(player.id).length >= g.params.minTerritories;
+    return progress(player) >= 1;
+  }
+  return {
+    GoalTypes,
+    assignToAll() {
+      for (const p of state.players) {
+        if (p.isAI && p.personality) {
+          p.goal = assign(p);
+          p.goalProgress = 0;
+        }
+      }
+    },
+    progress, isComplete,
+    bonus(player, action) {
+      if (!player.goal) return 0;
+      const g = player.goal;
+      const w = player.personality?.weights?.goalWeight ?? 0.5;
+      if (action.kind === "attack") {
+        if (g.type === GoalTypes.HOLD_CONTINENT) {
+          const tgtCont = state.territories[action.target].continent;
+          if (tgtCont === g.params.continent) return 25 * w;
+        }
+        if (g.type === GoalTypes.ELIMINATE_FIRST) {
+          const opp = playerById(state.territories[action.target].owner);
+          if (opp && ownedBy(opp.id).length <= 2) return 35 * w;
+        }
+        if (g.type === GoalTypes.BREAK_BONUSES) {
+          const tgtCont = state.territories[action.target].continent;
+          const contTerrs = TERR_ORDER.filter(n => state.territories[n].continent === tgtCont);
+          const defenderId = state.territories[action.target].owner;
+          if (defenderId != null && contTerrs.every(n => state.territories[n].owner === defenderId)) {
+            return 30 * w;
+          }
+        }
+        if (g.type === GoalTypes.CAPTURE_CAPITAL && action.target === g.params.territory) return 50 * w;
+      }
+      if (action.kind === "reinforce") {
+        if (g.type === GoalTypes.HOLD_CONTINENT) {
+          const t = state.territories[action.name];
+          if (t.continent === g.params.continent) return 10 * w;
+        }
+        if (g.type === GoalTypes.SURVIVE_WITH) {
+          const t = state.territories[action.name];
+          const enemyCount = t.adj.filter(a => state.territories[a].owner !== player.id).length;
+          if (enemyCount > 1) return 8 * w;
+        }
+      }
+      return 0;
+    },
+    onCapture(attacker, srcName, tgtName) {
+      if (!attacker?.goal || attacker.goal.type !== GoalTypes.BREAK_BONUSES) return;
+      // If the continent now has more than one owner, we broke a bonus
+      const tgtCont = state.territories[tgtName].continent;
+      const contTerrs = TERR_ORDER.filter(n => state.territories[n].continent === tgtCont);
+      const owners = new Set(contTerrs.map(n => state.territories[n].owner));
+      if (owners.size > 1) {
+        attacker.goalProgress = (attacker.goalProgress || 0) + 1;
+      }
+    },
+  };
+})();
+
+/* =========================================================================
+   PLAN — TELEGRAPHED INTENT (Spec 12)
+   ========================================================================= */
+const Plan = (() => {
+  function compose(player) {
+    if (!player.isAI || !player.personality) return null;
+    const options = [];
+    for (const src of ownedBy(player.id)) {
+      const sT = state.territories[src];
+      if (sT.armies < 3) continue;
+      for (const adj of sT.adj) {
+        if (state.territories[adj].owner !== player.id) {
+          const s = scoreAttack(src, adj, player);
+          options.push({ source: src, target: adj, score: s });
+        }
+      }
+    }
+    options.sort((a, b) => b.score - a.score);
+    const primary = options[0];
+    const owned = ownedBy(player.id);
+    const reinforcePicks = owned.map(n => ({ name: n, score: scoreReinforceTerritory(n, player) }));
+    reinforcePicks.sort((a, b) => b.score - a.score);
+    const reinforceFocus = reinforcePicks[0]?.name;
+    return {
+      kind: primary?.score > 0 ? "aggressive" : "defensive",
+      primary, reinforceFocus, turn: state.turn,
+    };
+  }
+  function evaluate(player) {
+    const plan = player.currentPlan;
+    if (!plan || !plan.primary) return "neutral";
+    const t = state.territories[plan.primary.target];
+    if (!t) return "neutral";
+    const ownedNow = t.owner === player.id;
+    const src = state.territories[plan.primary.source];
+    const hasLostSource = src && src.armies < 2;
+    if (ownedNow) return "success";
+    if (hasLostSource) return "disaster";
+    return "thwarted";
+  }
+  return { compose, evaluate };
+})();
+
+/* =========================================================================
+   MOOD — VISIBLE TELLS (Spec 14)
+   ========================================================================= */
+const Mood = (() => {
+  function compute(player) {
+    if (!player.personality) return "neutral";
+    const m = player.personality.mood;
+    const recent = player._recentEvents?.[0];
+    if (recent === "captured") return m.onCapture;
+    if (recent === "lost") return m.onLoss;
+    if (recent === "attacked") return m.onAttacked;
+    if (recent === "won") return m.onWin;
+    return m.default;
+  }
+  function icon(mood) {
+    const map = {
+      triumphant: { glyph: "✚", color: "#10b981" },
+      victorious: { glyph: "✪", color: "#f59e0b" },
+      confident: { glyph: "◈", color: "#2563eb" },
+      content: { glyph: "◆", color: "#475569" },
+      serene: { glyph: "◉", color: "#059669" },
+      rapturous: { glyph: "✦", color: "#f59e0b" },
+      ascendant: { glyph: "⬢", color: "#f59e0b" },
+      luminous: { glyph: "☀", color: "#fbbf24" },
+      satisfied: { glyph: "◈", color: "#059669" },
+      stoic: { glyph: "▮", color: "#94a3b8" },
+      composed: { glyph: "☯", color: "#0ea5e9" },
+      bowed: { glyph: "⏛", color: "#0ea5e9" },
+      gorged: { glyph: "●", color: "#d97706" },
+      hungry: { glyph: "◐", color: "#d97706" },
+      furious: { glyph: "✦", color: "#dc2626" },
+      insulted: { glyph: "▲", color: "#dc2626" },
+      vengeful: { glyph: "✗", color: "#7c3aed" },
+      seething: { glyph: "⚡", color: "#7c3aed" },
+      incensed: { glyph: "⚔", color: "#7c3aed" },
+      stewing: { glyph: "◌", color: "#475569" },
+      slinking: { glyph: "◢", color: "#d97706" },
+      dishonored: { glyph: "⏜", color: "#94a3b8" },
+      wounded: { glyph: "✂", color: "#dc2626" },
+      neutral: { glyph: "·", color: "#94a3b8" },
+      watchful: { glyph: "⟢", color: "#475569" },
+      alert: { glyph: "⌖", color: "#0ea5e9" },
+      stalking: { glyph: "◤", color: "#d97706" },
+      brooding: { glyph: "◔", color: "#7c3aed" },
+      meditative: { glyph: "◌", color: "#059669" },
+      still: { glyph: "▯", color: "#0ea5e9" },
+      withdrawn: { glyph: "◎", color: "#ec4899" },
+      patient: { glyph: "∽", color: "#059669" },
+      tested: { glyph: "✛", color: "#f59e0b" },
+      indifferent: { glyph: "—", color: "#94a3b8" },
+      disturbed: { glyph: "≈", color: "#ec4899" },
+      roused: { glyph: "▲", color: "#ec4899" },
+      unmoved: { glyph: "▪", color: "#059669" },
+      annoyed: { glyph: "◣", color: "#d97706" },
+      nodding: { glyph: "⌒", color: "#059669" },
+      "cold-smile": { glyph: "⌣", color: "#7c3aed" },
+      "baring-teeth": { glyph: "⌇", color: "#dc2626" },
+      "drawn-blade": { glyph: "⟊", color: "#0ea5e9" },
+      wrathful: { glyph: "⚡", color: "#dc2626" },
+      sparse: { glyph: "·", color: "#ec4899" },
+      sage: { glyph: "◉", color: "#059669" },
+      vindicated: { glyph: "✓", color: "#7c3aed" },
+    };
+    return map[mood] || map.neutral;
+  }
+  return {
+    record(player, event) {
+      if (!player._recentEvents) player._recentEvents = [];
+      player._recentEvents.unshift(event);
+      if (player._recentEvents.length > 3) player._recentEvents.pop();
+      player.mood = compute(player);
+    },
+    badge(player) {
+      if (!player.personality) return "";
+      const m = player.mood || "neutral";
+      const i = icon(m);
+      return `<span class="mood-badge" title="${m}" style="color:${i.color};margin-left:4px">${i.glyph}</span>`;
+    },
+    compute, icon,
+  };
+})();
+
+/* =========================================================================
+   OPENING BOOKS (Spec 15)
+   ========================================================================= */
+const Book = (() => {
+  const books = {
+    "europe-blitz": {
+      claimPreference: (name) => {
+        const t = TERR_DATA[name];
+        if (t[0] === "EU") return 100;
+        if (t[0] === "AF" && name !== "Madagascar" && name !== "South Africa") return 40;
+        if (t[0] === "AS" && (name === "Ural" || name === "Middle East")) return 30;
+        return 10;
+      },
+      reinforceFocus: ["Southern Europe", "Ukraine", "Northern Europe", "Western Europe", "North Africa"],
+      earlyAttackPriority: ["Ukraine", "Scandinavia", "Middle East"],
+      booksExpireAfterTurn: 3,
+    },
+    "continent-fortress": {
+      claimPreference: (name) => {
+        const t = TERR_DATA[name];
+        if (t[0] === "AU") return 100;
+        if (t[0] === "SA") return 80;
+        if (t[0] === "AF") return 50;
+        return 20;
+      },
+      reinforceFocus: ["Indonesia", "Siam", "Central America", "Venezuela", "North Africa"],
+      earlyAttackPriority: [],
+      booksExpireAfterTurn: 4,
+    },
+    "asian-pivot": {
+      claimPreference: (name) => {
+        const t = TERR_DATA[name];
+        if (t[0] === "AS") return 100;
+        if (t[0] === "AU") return 50;
+        if (name === "Middle East" || name === "Ural") return 90;
+        return 15;
+      },
+      reinforceFocus: ["China", "India", "Mongolia", "Middle East", "Ural"],
+      earlyAttackPriority: ["Siam", "Indonesia"],
+      booksExpireAfterTurn: 3,
+    },
+    "isolation": {
+      claimPreference: (name) => {
+        const t = TERR_DATA[name];
+        if (t[0] === "AU") return 100;
+        if (name === "Madagascar" || name === "South Africa") return 70;
+        if (t[0] === "SA") return 60;
+        return 10;
+      },
+      reinforceFocus: ["Indonesia", "Eastern Australia", "Western Australia", "New Guinea"],
+      earlyAttackPriority: [],
+      booksExpireAfterTurn: 5,
+    },
+    "patient-build": {
+      claimPreference: (name) => {
+        const t = TERR_DATA[name];
+        if (t[0] === "AF") return 70;
+        if (t[0] === "SA") return 70;
+        if (t[0] === "AU") return 60;
+        return 30;
+      },
+      reinforceFocus: ["Brazil", "North Africa", "East Africa", "Egypt"],
+      earlyAttackPriority: [],
+      booksExpireAfterTurn: 4,
+    },
+  };
+  return {
+    forPlayer(player) {
+      const id = player?.personality?.openingBook;
+      return id ? books[id] : null;
+    },
+    active(player) {
+      const b = Book.forPlayer(player);
+      if (!b) return false;
+      return state.turn <= b.booksExpireAfterTurn;
+    },
+    claimScore(player, name) {
+      const b = Book.forPlayer(player);
+      return b ? Math.min(50, b.claimPreference(name) || 0) : 0;
+    },
+    reinforceBonus(player, name) {
+      const b = Book.forPlayer(player);
+      if (!b || !Book.active(player)) return 0;
+      const idx = b.reinforceFocus.indexOf(name);
+      if (idx < 0) return 0;
+      return 30 - idx * 5;
+    },
+    attackBonus(player, target) {
+      const b = Book.forPlayer(player);
+      if (!b || !Book.active(player)) return 0;
+      return b.earlyAttackPriority.includes(target) ? 15 : 0;
+    },
+  };
+})();
+
+/* =========================================================================
+   RULE — MECHANICAL ASYMMETRY (Spec 16)
+   ========================================================================= */
+const Rule = {
+  mod(player, key) {
+    return player?.personality?.ruleMods?.[key];
+  },
+  reinforceBonus(player) {
+    const base = Rule.mod(player, "reinforceBonus") || 0;
+    const lossPerAttack = Rule.mod(player, "reinforceLossPerAttack") || 0;
+    const attacksLastTurn = player?._attackedLastTurn || 0;
+    return base - lossPerAttack * attacksLastTurn;
+  },
+  canAttack(player, srcName) {
+    const minStack = Rule.mod(player, "minAttackStack");
+    if (minStack != null && state.territories[srcName].armies < minStack) return false;
+    const noBefore = Rule.mod(player, "noAttackBeforeTurn");
+    if (noBefore != null && state.turn < noBefore) return false;
+    return true;
+  },
+  rerollAtkDie(player, atkDice, defDice) {
+    if (!Rule.mod(player, "rerollOneLoss")) return atkDice;
+    const a = atkDice.slice().sort((x, y) => y - x);
+    const d = defDice.slice().sort((x, y) => y - x);
+    for (let i = 0; i < Math.min(a.length, d.length); i++) {
+      if (a[i] <= d[i]) {
+        const newRoll = 1 + Math.floor(Math.random() * 6);
+        if (newRoll > a[i]) { a[i] = newRoll; return a.sort((x,y)=>y-x); }
+        break;
+      }
+    }
+    return a;
+  },
+};
+
+/* =========================================================================
+   REGRET — IN-GAME LEARNING (Spec 06)
+   ========================================================================= */
+const Regret = (() => {
+  const EXPECTED_LOSS = {
+    "1,1": { atkLoss: 0.583, defLoss: 0.417 },
+    "2,1": { atkLoss: 0.421, defLoss: 0.579 },
+    "3,1": { atkLoss: 0.340, defLoss: 0.660 },
+    "1,2": { atkLoss: 0.745, defLoss: 0.255 },
+    "2,2": { atkLoss: 0.896, defLoss: 1.104 },
+    "3,2": { atkLoss: 0.742, defLoss: 1.258 },
+  };
+  function expected(atk, def) {
+    return EXPECTED_LOSS[`${atk},${def}`] || { atkLoss: 1, defLoss: 1 };
+  }
+  return {
+    update(player, atkDiceCount, defDiceCount, actualAtkLoss, actualDefLoss) {
+      if (!player.personality || !player.runtimeWeights) return;
+      const exp = expected(atkDiceCount, defDiceCount);
+      const atkRegret = actualAtkLoss - exp.atkLoss;
+      const defShortfall = exp.defLoss - actualDefLoss;
+      const la = player.personality.lossAversion || 1.0;
+      const combined = atkRegret * la + defShortfall * 0.5;
+      const w = player.runtimeWeights.attack;
+      const baseW = player.personality.weights.attack;
+      w.hopelessPenalty = _clampNum(w.hopelessPenalty + 0.05 * combined, baseW.hopelessPenalty * 0.7, baseW.hopelessPenalty * 1.6);
+      w.armyAdvantage = _clampNum(w.armyAdvantage - 0.03 * combined, baseW.armyAdvantage * 0.6, baseW.armyAdvantage * 1.4);
+      // Nudge temperature via accumulator (Band reads this)
+      const baseT = player.personality.temperature;
+      player.regretTempAccum = _clampNum((player.regretTempAccum || 0) + 0.04 * -combined, -baseT * 0.5, baseT * 0.6);
+    },
+    reset(player) {
+      if (!player.personality) return;
+      player.runtimeWeights = JSON.parse(JSON.stringify(player.personality.weights));
+      player.runtimeTemperature = player.personality.temperature;
+      player.regretTempAccum = 0;
+    },
+  };
+})();
+
+/* =========================================================================
+   BAND — RUBBER-BAND TEMPERATURE (Spec 07)
+   ========================================================================= */
+const Band = (() => {
+  function standing(player) {
+    if (player.eliminated) return -1;
+    const alive = state.players.filter(p => !p.eliminated);
+    if (alive.length <= 1) return 0;
+    const myT = ownedBy(player.id).length;
+    const totalT = TERR_ORDER.length;
+    const avgT = totalT / alive.length;
+    const myA = TERR_ORDER.reduce((s, n) => s + (state.territories[n].owner === player.id ? state.territories[n].armies : 0), 0);
+    const totalA = TERR_ORDER.reduce((s, n) => s + state.territories[n].armies, 0);
+    const avgA = totalA / alive.length;
+    const myC = ownedContinents(player.id).reduce((s, c) => s + CONTINENTS[c].bonus, 0);
+    const totalC = Object.keys(CONTINENTS).reduce((s, c) => s + CONTINENTS[c].bonus, 0);
+    const avgC = totalC / alive.length;
+    const tD = avgT > 0 ? (myT - avgT) / avgT : 0;
+    const aD = avgA > 0 ? (myA - avgA) / avgA : 0;
+    const cD = avgC > 0 ? (myC - avgC) / avgC : 0;
+    return Math.max(-1, Math.min(1, 0.4 * tD + 0.4 * aD + 0.2 * cD));
+  }
+  return {
+    recalibrate() {
+      if (!state) return;
+      for (const p of state.players) {
+        if (!p.personality || p.eliminated) continue;
+        const s = standing(p);
+        const baseT = p.personality.temperature;
+        const rb = p.personality.rubberBand || { leaderBonus: 0, trailerBonus: 0 };
+        let delta = s > 0 ? rb.leaderBonus * s : rb.trailerBonus * -s;
+        p.runtimeTemperature = Math.max(0.1, baseT + delta + (p.regretTempAccum || 0));
+      }
+    },
+    standing,
+  };
+})();
+
+/* =========================================================================
+   PERSIST — META (Spec 17)
+   ========================================================================= */
+const Persist = (() => {
+  const ENABLED_KEY = "rg.enabled";
+  const ARCH_KEY = "rg.archStats";
+  const PLAYER_KEY = "rg.playerStats";
+  const LAST_KEY = "rg.lastGame";
+  function enabled() { try { return localStorage.getItem(ENABLED_KEY) === "true"; } catch(e){ return false; } }
+  function read(key, fb) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fb; } catch(e){ return fb; } }
+  function write(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch(e){} }
+  return {
+    isEnabled: enabled,
+    setEnabled(v) { try { localStorage.setItem(ENABLED_KEY, v ? "true" : "false"); } catch(e){} },
+    recordGame(winner, players) {
+      if (!enabled()) return;
+      const archStats = read(ARCH_KEY, {});
+      const playerStats = read(PLAYER_KEY, {});
+      for (const p of players) {
+        const archId = p.personality?.id;
+        if (archId) {
+          archStats[archId] = archStats[archId] || { wins: 0, losses: 0, games: 0 };
+          archStats[archId].games++;
+          if (p.id === winner.id) archStats[archId].wins++; else archStats[archId].losses++;
+        }
+        if (!p.isAI) {
+          const pname = p.name;
+          playerStats[pname] = playerStats[pname] || { vs: {} };
+          for (const opp of players) {
+            if (opp.id === p.id) continue;
+            const oppArch = opp.personality?.id;
+            if (!oppArch) continue;
+            playerStats[pname].vs[oppArch] = playerStats[pname].vs[oppArch] || { wins: 0, losses: 0 };
+            if (p.id === winner.id) playerStats[pname].vs[oppArch].wins++;
+            else if (opp.id === winner.id) playerStats[pname].vs[oppArch].losses++;
+          }
+        }
+      }
+      write(ARCH_KEY, archStats);
+      write(PLAYER_KEY, playerStats);
+      write(LAST_KEY, {
+        timestamp: Date.now(),
+        players: players.map(p => ({ name: p.name, archId: p.personality?.id || null })),
+        winner: winner.name,
+      });
+    },
+    record(playerName, archId) {
+      const ps = read(PLAYER_KEY, {});
+      return ps[playerName]?.vs?.[archId] || { wins: 0, losses: 0 };
+    },
+    lastGame() { return read(LAST_KEY, null); },
+    leaderboard() {
+      const archStats = read(ARCH_KEY, {});
+      return Object.entries(archStats).map(([id,s]) => ({ id, ...s, winRate: s.games ? s.wins / s.games : 0 })).sort((a,b)=>b.winRate-a.winRate);
+    },
+  };
+})();
+
+/* =========================================================================
+   HOOK SUBSCRIPTIONS (wire up behavioral modules)
+   ========================================================================= */
+Hooks.on("gameStart", ({ players }) => {
+  players.forEach(p => { p.grudges = {}; });
+  try { Rep.init(); } catch(e){}
+  try { Goal.assignToAll(); } catch(e){}
+});
+Hooks.on("turnStart", ({ player }) => {
+  try { Grudge.tick(); } catch(e){}
+  try { Rep.tick(); } catch(e){}
+  try { Band.recalibrate(); } catch(e){}
+  if (player) {
+    player._attackedLastTurn = player._attackedThisTurn || 0;
+    player._attackedThisTurn = 0;
+  }
+  if (player && player.isAI && player.personality) {
+    try {
+      player.currentPlan = Plan.compose(player);
+      if (player.currentPlan) {
+        const decl = Voice.declareIntent(player, player.currentPlan);
+        if (decl) log(`<span class="intent-mark">▸</span> ${decl}`);
+      }
+    } catch(e){}
+  }
+});
+Hooks.on("turnEnd", ({ player }) => {
+  if (!player || !player.isAI || !player.personality || !player.currentPlan) return;
+  try {
+    const outcome = Plan.evaluate(player);
+    const reaction = Voice.reactToOutcome(player, player.currentPlan, outcome);
+    if (reaction) log(`<span style="color:var(--text-3)">◂</span> ${reaction}`);
+  } catch(e){}
+  player.currentPlan = null;
+});
+Hooks.on("attack", ({ attacker, defender, atkDice, defDice, atkLost, defLost, captured }) => {
+  if (attacker && defender) {
+    try { Grudge.record(defender, attacker.id, defLost, captured); } catch(e){}
+    try { Rep.onAttack(attacker.id, defender.id); } catch(e){}
+    if (defender) defender._attackedThisTurn = (defender._attackedThisTurn || 0) + 1;
+  }
+  if (attacker && attacker.isAI && attacker.personality) {
+    try { Regret.update(attacker, atkDice.length, defDice.length, atkLost, defLost); } catch(e){}
+    Mood.record(attacker, captured ? "captured" : (atkLost > defLost ? "lost" : "won"));
+  }
+  if (defender?.personality) Mood.record(defender, "attacked");
+});
+Hooks.on("capture", ({ attacker, source, target }) => {
+  try { Goal.onCapture(attacker, source, target); } catch(e){}
+  try { Band.recalibrate(); } catch(e){}
+});
+Hooks.on("eliminate", ({ attacker, defender }) => {
+  try { Rep.onEliminate(attacker.id, defender.id); } catch(e){}
+  if (attacker?.grudges?.[defender.id]) attacker.grudges[defender.id].severity *= 0.3;
+  if (attacker?.personality) Mood.record(attacker, "captured");
+});
+
+// Score modifiers
+Scoring.addAttackModifier((src, tgt, player) => {
+  const defenderId = state.territories[tgt].owner;
+  if (defenderId == null) return 0;
+  const sev = Grudge.severity(player, defenderId);
+  const w = player.personality?.weights?.grudge ?? 0;
+  return 8 * sev * w;
+});
+Scoring.addAttackModifier((src, tgt, player) => {
+  const defenderId = state.territories[tgt].owner;
+  if (defenderId == null) return 0;
+  const r = Rep.get(player.id, defenderId);
+  const w = player.personality?.weights?.reputation ?? 0.3;
+  return -15 * r * w;
+});
+Scoring.addAttackModifier((src, tgt, player) => Goal.bonus(player, { kind: "attack", source: src, target: tgt }));
+Scoring.addReinforceModifier((name, player) => Goal.bonus(player, { kind: "reinforce", name }));
+Scoring.addReinforceModifier((name, player) => Book.reinforceBonus(player, name));
+Scoring.addAttackModifier((src, tgt, player) => Book.attackBonus(player, tgt));
+
+// Render extensions
+RenderExt.addRosterBadge(p => Mood.badge(p));
+RenderExt.addRosterBadge(p => {
+  const cp = currentPlayer();
+  if (!cp || cp.id === p.id || !cp.isAI) return "";
+  const sev = Grudge.severity(cp, p.id);
+  if (sev < 0.5) return "";
+  return `<span class="grudge-badge" title="grudge sev=${sev.toFixed(1)}">!</span>`;
+});
+RenderExt.addRosterBadge(p => {
+  const cp = currentPlayer();
+  if (!cp || cp.id === p.id) return "";
+  const r = Rep.get(cp.id, p.id);
+  if (Math.abs(r) < 0.15) return "";
+  const color = r > 0 ? "var(--emerald)" : "var(--crimson)";
+  return `<span class="rep-badge" style="color:${color};margin-left:4px">${Rep.symbol(cp.id, p.id)}</span>`;
+});
+RenderExt.addMapOverlay(svg => {
+  const cp = currentPlayer();
+  if (!cp?.personality) return;
+  const SVG = "http://www.w3.org/2000/svg";
+  if (cp.personality.id === "jackal") {
+    const alive = state.players.filter(p => !p.eliminated && p.id !== cp.id);
+    if (!alive.length) return;
+    const weakest = alive.reduce((min, p) => ownedBy(p.id).length < ownedBy(min.id).length ? p : min, alive[0]);
+    const wts = ownedBy(weakest.id);
+    if (!wts.length) return;
+    const low = wts.reduce((m, n) => state.territories[n].armies < state.territories[m].armies ? n : m, wts[0]);
+    const t = state.territories[low];
+    const mk = document.createElementNS(SVG, "text");
+    mk.setAttribute("x", t.x); mk.setAttribute("y", t.y - 28);
+    mk.setAttribute("text-anchor", "middle");
+    mk.setAttribute("fill", "#d97706");
+    mk.setAttribute("font-size", "14");
+    mk.textContent = "◤";
+    svg.appendChild(mk);
+  }
+  if (cp.personality.id === "fortress") {
+    const owned = ownedBy(cp.id);
+    if (!owned.length) return;
+    const biggest = owned.reduce((m, n) => state.territories[n].armies > state.territories[m].armies ? n : m, owned[0]);
+    const t = state.territories[biggest];
+    if (t.armies >= 6) {
+      const c = document.createElementNS(SVG, "circle");
+      c.setAttribute("cx", t.x); c.setAttribute("cy", t.y);
+      c.setAttribute("r", 28); c.setAttribute("fill", "none");
+      c.setAttribute("stroke", "#475569"); c.setAttribute("stroke-width", "2");
+      c.setAttribute("stroke-dasharray", "3 3"); c.setAttribute("opacity", "0.6");
+      svg.appendChild(c);
+    }
+  }
+  if (cp.personality.id === "vengeful" && cp.grudges) {
+    let topId = null, topSev = 0;
+    for (const [id, g] of Object.entries(cp.grudges)) {
+      if (g.severity > topSev) { topSev = g.severity; topId = parseInt(id, 10); }
+    }
+    if (topId != null && topSev > 1) {
+      const terrs = ownedBy(topId);
+      if (terrs.length) {
+        const weakest = terrs.reduce((m, n) => state.territories[n].armies < state.territories[m].armies ? n : m, terrs[0]);
+        const t = state.territories[weakest];
+        const r = document.createElementNS(SVG, "circle");
+        r.setAttribute("cx", t.x); r.setAttribute("cy", t.y);
+        r.setAttribute("r", 24); r.setAttribute("fill", "none");
+        r.setAttribute("stroke", "#dc2626"); r.setAttribute("stroke-width", "2");
+        r.setAttribute("opacity", "0.7");
+        svg.appendChild(r);
+      }
+    }
+  }
+});
+
+/* =========================================================================
+   DATA
+   ========================================================================= */
+
+const CONTINENTS = {
+  NA: { name: "North America", bonus: 5, color: "rgba(220, 38, 38, 0.08)", labelX: 175, labelY: 40 },
+  SA: { name: "South America", bonus: 2, color: "rgba(5, 150, 105, 0.08)", labelX: 225, labelY: 448 },
+  EU: { name: "Europe",        bonus: 5, color: "rgba(37, 99, 235, 0.08)", labelX: 495, labelY: 95 },
+  AF: { name: "Africa",        bonus: 3, color: "rgba(217, 119, 6, 0.08)", labelX: 430, labelY: 440 },
+  AS: { name: "Asia",          bonus: 7, color: "rgba(124, 58, 237, 0.08)", labelX: 775, labelY: 90 },
+  AU: { name: "Australia",     bonus: 2, color: "rgba(236, 72, 153, 0.08)", labelX: 865, labelY: 410 },
+};
+
+// Territories: [continent, x, y, [adj]]
+const TERR_DATA = {
+  // North America
+  "Alaska":              ["NA",  60, 120, ["Northwest Territory","Alberta","Kamchatka"]],
+  "Northwest Territory": ["NA", 150, 130, ["Alaska","Alberta","Ontario","Greenland"]],
+  "Greenland":           ["NA", 295,  70, ["Northwest Territory","Ontario","Quebec","Iceland"]],
+  "Alberta":             ["NA", 150, 205, ["Alaska","Northwest Territory","Ontario","Western US"]],
+  "Ontario":             ["NA", 230, 215, ["Northwest Territory","Greenland","Quebec","Alberta","Western US","Eastern US"]],
+  "Quebec":              ["NA", 305, 215, ["Greenland","Ontario","Eastern US"]],
+  "Western US":          ["NA", 160, 290, ["Alberta","Ontario","Eastern US","Central America"]],
+  "Eastern US":          ["NA", 245, 300, ["Ontario","Quebec","Western US","Central America"]],
+  "Central America":     ["NA", 180, 370, ["Western US","Eastern US","Venezuela"]],
+
+  // South America
+  "Venezuela":           ["SA", 260, 410, ["Central America","Brazil","Peru"]],
+  "Brazil":              ["SA", 315, 470, ["Venezuela","Peru","Argentina","North Africa"]],
+  "Peru":                ["SA", 270, 510, ["Venezuela","Brazil","Argentina"]],
+  "Argentina":           ["SA", 290, 570, ["Peru","Brazil"]],
+
+  // Europe
+  "Iceland":             ["EU", 405, 145, ["Greenland","Scandinavia","Great Britain"]],
+  "Scandinavia":         ["EU", 475, 135, ["Iceland","Great Britain","Northern Europe","Ukraine"]],
+  "Great Britain":       ["EU", 425, 205, ["Iceland","Scandinavia","Northern Europe","Western Europe"]],
+  "Northern Europe":     ["EU", 490, 225, ["Scandinavia","Great Britain","Ukraine","Southern Europe","Western Europe"]],
+  "Ukraine":             ["EU", 560, 205, ["Scandinavia","Northern Europe","Southern Europe","Ural","Afghanistan","Middle East"]],
+  "Southern Europe":     ["EU", 490, 285, ["Northern Europe","Ukraine","Western Europe","North Africa","Egypt","Middle East"]],
+  "Western Europe":      ["EU", 425, 295, ["Great Britain","Northern Europe","Southern Europe","North Africa"]],
+
+  // Africa
+  "North Africa":        ["AF", 465, 380, ["Brazil","Western Europe","Southern Europe","Egypt","East Africa","Congo"]],
+  "Egypt":               ["AF", 525, 365, ["Southern Europe","North Africa","East Africa","Middle East"]],
+  "East Africa":         ["AF", 565, 430, ["Egypt","North Africa","Congo","South Africa","Madagascar","Middle East"]],
+  "Congo":               ["AF", 515, 470, ["North Africa","East Africa","South Africa"]],
+  "South Africa":        ["AF", 515, 550, ["Congo","East Africa","Madagascar"]],
+  "Madagascar":          ["AF", 585, 540, ["East Africa","South Africa"]],
+
+  // Asia
+  "Ural":                ["AS", 640, 185, ["Ukraine","Siberia","China","Afghanistan"]],
+  "Siberia":             ["AS", 710, 155, ["Ural","Yakutsk","Irkutsk","Mongolia","China"]],
+  "Yakutsk":             ["AS", 795, 125, ["Siberia","Kamchatka","Irkutsk"]],
+  "Kamchatka":           ["AS", 890, 135, ["Alaska","Yakutsk","Irkutsk","Mongolia","Japan"]],
+  "Irkutsk":             ["AS", 775, 200, ["Siberia","Yakutsk","Kamchatka","Mongolia"]],
+  "Mongolia":            ["AS", 795, 255, ["Siberia","Irkutsk","Kamchatka","Japan","China"]],
+  "Japan":               ["AS", 910, 245, ["Kamchatka","Mongolia"]],
+  "Afghanistan":         ["AS", 650, 265, ["Ukraine","Ural","China","India","Middle East"]],
+  "China":               ["AS", 755, 305, ["Ural","Siberia","Mongolia","Afghanistan","India","Siam"]],
+  "Middle East":         ["AS", 605, 325, ["Ukraine","Southern Europe","Egypt","East Africa","Afghanistan","India"]],
+  "India":               ["AS", 700, 355, ["Afghanistan","China","Middle East","Siam"]],
+  "Siam":                ["AS", 775, 385, ["China","India","Indonesia"]],
+
+  // Australia
+  "Indonesia":           ["AU", 825, 455, ["Siam","New Guinea","Western Australia"]],
+  "New Guinea":          ["AU", 915, 435, ["Indonesia","Western Australia","Eastern Australia"]],
+  "Western Australia":   ["AU", 865, 540, ["Indonesia","New Guinea","Eastern Australia"]],
+  "Eastern Australia":   ["AU", 930, 540, ["New Guinea","Western Australia"]],
+};
+
+const TERR_ORDER = Object.keys(TERR_DATA);
+
+// Trans-pacific pair (rendered as dashed edge-exit)
+const EDGE_EXIT_PAIRS = [["Alaska","Kamchatka"]];
+
+// Build undirected adjacency pair list for rendering lines
+function buildAdjPairs() {
+  const edgeKey = new Set(EDGE_EXIT_PAIRS.map(([a,b]) => [a,b].sort().join("|")));
+  const pairs = [];
+  const seen = new Set();
+  for (const name of TERR_ORDER) {
+    for (const other of TERR_DATA[name][3]) {
+      const key = [name, other].sort().join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push({ a: name, b: other, edgeExit: edgeKey.has(key) });
+    }
+  }
+  return pairs;
+}
+const ADJ_PAIRS = buildAdjPairs();
+
+// Card types cycle
+const CARD_TYPES = ["Infantry", "Cavalry", "Artillery"];
+function buildDeck() {
+  const deck = TERR_ORDER.map((name, i) => ({
+    territory: name,
+    type: CARD_TYPES[i % 3]
+  }));
+  deck.push({ territory: null, type: "Wild" });
+  deck.push({ territory: null, type: "Wild" });
+  return deck;
+}
+
+const PALETTE = [
+  { color: "#dc2626", name: "Crimson" },
+  { color: "#2563eb", name: "Sapphire" },
+  { color: "#059669", name: "Emerald" },
+  { color: "#d97706", name: "Amber" },
+  { color: "#7c3aed", name: "Violet" },
+  { color: "#ec4899", name: "Rose" },
+];
+const STARTING_ARMIES = { 3: 35, 4: 30, 5: 25, 6: 20 };
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+
+let state = null;
+let midAttackResume = null; // callback fired after mid-attack forced-trade placement completes
+const lastArmiesShown = new Map(); // territory name -> last-rendered army count (for tweening)
+
+function tweenNumber(el, from, to, duration) {
+  const start = performance.now();
+  const delta = to - from;
+  function tick(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    if (!el.isConnected) return; // element removed mid-tween
+    el.textContent = Math.round(from + delta * eased);
+    if (t < 1) requestAnimationFrame(tick);
+    else el.textContent = to;
+  }
+  requestAnimationFrame(tick);
+}
+
+function freshState() {
+  return {
+    phase: "setup-claim",
+    turn: 1,
+    currentPlayerIdx: 0,
+    players: [],
+    territories: {},
+    deck: [],
+    discard: [],
+    setsTradedGlobal: 0,
+    conqueredThisTurn: false,
+    fortifyUsed: false,
+    pendingReinforcements: 0,
+    selected: { source: null, target: null },
+    selectedCards: [], // indices into current player's cards for trading
+    log: [],
+    pendingAttack: null, // { source, target, lastRoll }
+    pendingMove: null, // { source, target, min, max }
+    lastDice: null, // { atk: [...], def: [...] } - persists across renders
+    midAttackPlacement: false, // true when placing forced-trade bonus mid-attack
+    // === MARKER: state-extensions ===
+    reputation: {},
+    observations: {},
+    uiAlerts: [],
+  };
+}
+
+/* =========================================================================
+   UTILITIES
+   ========================================================================= */
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function rollDie() { return 1 + Math.floor(Math.random() * 6); }
+function log(msg) {
+  if (!state) return;
+  // === MARKER: render-log-voice ===
+  const filtered = RenderExt.filterLog(msg, { turn: state?.turn ?? 0 });
+  state.log.push(filtered);
+  if (state.log.length > 200) state.log.shift();
+}
+function toast(msg) {
+  const div = document.createElement("div");
+  div.className = "toast";
+  div.textContent = msg;
+  document.getElementById("toast-container").appendChild(div);
+  setTimeout(() => div.remove(), 3000);
+}
+function currentPlayer() { return state.players[state.currentPlayerIdx]; }
+function playerById(id) { return state.players.find(p => p.id === id); }
+function ownedBy(pid) {
+  return TERR_ORDER.filter(n => state.territories[n].owner === pid);
+}
+function continentOwnedBy(cont, pid) {
+  const ts = TERR_ORDER.filter(n => state.territories[n].continent === cont);
+  return ts.every(n => state.territories[n].owner === pid);
+}
+function ownedContinents(pid) {
+  return Object.keys(CONTINENTS).filter(c => continentOwnedBy(c, pid));
+}
+function calcReinforcements(pid) {
+  const owned = ownedBy(pid).length;
+  const base = Math.max(3, Math.floor(owned / 3));
+  const bonus = ownedContinents(pid).reduce((s, c) => s + CONTINENTS[c].bonus, 0);
+  const player = playerById(pid);
+  const ruleBonus = player ? Rule.reinforceBonus(player) : 0;
+  return Math.max(1, base + bonus + ruleBonus);
+}
+function nextTradeValue(setsSoFar) {
+  const table = [4, 6, 8, 10, 12, 15];
+  if (setsSoFar < table.length) return table[setsSoFar];
+  return 15 + (setsSoFar - 5) * 5; // index 6 → 20, 7 → 25, 8 → 30 …
+}
+function validSet(cards) {
+  if (cards.length !== 3) return false;
+  const wilds = cards.filter(c => c.type === "Wild").length;
+  const nonWilds = cards.filter(c => c.type !== "Wild");
+  if (wilds === 0) {
+    const types = new Set(nonWilds.map(c => c.type));
+    if (types.size === 1) return true; // 3 same
+    if (types.size === 3) return true; // 1 of each
+    return false;
+  }
+  // with ≥1 wild: need any 2 non-wilds (types don't matter — wild substitutes for either)
+  if (wilds >= 1 && nonWilds.length + wilds === 3) return true;
+  return false;
+}
+function findBestAISet(player) {
+  const cards = player.cards;
+  const ownedSet = new Set(ownedBy(player.id));
+  // enumerate all 3-combos, pick valid set with most owned-territory matches
+  let best = null, bestScore = -1;
+  for (let i = 0; i < cards.length; i++) {
+    for (let j = i+1; j < cards.length; j++) {
+      for (let k = j+1; k < cards.length; k++) {
+        const trio = [cards[i], cards[j], cards[k]];
+        if (!validSet(trio)) continue;
+        const matches = trio.filter(c => c.territory && ownedSet.has(c.territory)).length;
+        if (matches > bestScore) {
+          bestScore = matches;
+          best = [i, j, k];
+        }
+      }
+    }
+  }
+  return best; // indices into player.cards
+}
+
+/* =========================================================================
+   SVG MAP RENDERING
+   ========================================================================= */
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function renderMap() {
+  const svg = document.getElementById("map-svg");
+  svg.innerHTML = "";
+
+  // 1. Continent halos (large soft blurred circles)
+  const halosGroup = document.createElementNS(SVG_NS, "g");
+  // Compute centroid + radius per continent
+  for (const cKey of Object.keys(CONTINENTS)) {
+    const ts = TERR_ORDER.filter(n => state.territories[n].continent === cKey);
+    let cx = 0, cy = 0;
+    ts.forEach(n => { cx += state.territories[n].x; cy += state.territories[n].y; });
+    cx /= ts.length; cy /= ts.length;
+    // radius: max distance from centroid
+    let r = 0;
+    ts.forEach(n => {
+      const dx = state.territories[n].x - cx;
+      const dy = state.territories[n].y - cy;
+      r = Math.max(r, Math.hypot(dx, dy));
+    });
+    r += 45;
+    const halo = document.createElementNS(SVG_NS, "circle");
+    halo.setAttribute("cx", cx);
+    halo.setAttribute("cy", cy);
+    halo.setAttribute("r", r);
+    halo.setAttribute("fill", CONTINENTS[cKey].color);
+    halo.setAttribute("filter", "url(#halo-blur)");
+    halosGroup.appendChild(halo);
+  }
+
+  // SVG filter for blur
+  const defs = document.createElementNS(SVG_NS, "defs");
+  defs.innerHTML = `
+    <filter id="halo-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+  `;
+  svg.appendChild(defs);
+  svg.appendChild(halosGroup);
+
+  // 2. Continent labels
+  for (const cKey of Object.keys(CONTINENTS)) {
+    const c = CONTINENTS[cKey];
+    const label = document.createElementNS(SVG_NS, "text");
+    label.setAttribute("x", c.labelX);
+    label.setAttribute("y", c.labelY);
+    label.setAttribute("class", "continent-label");
+    label.setAttribute("text-anchor", "middle");
+    const ownedAll = continentOwnedBy(cKey, currentPlayer()?.id);
+    label.textContent = c.name + "  +" + c.bonus;
+    svg.appendChild(label);
+  }
+
+  // 3. Adjacency lines (behind nodes)
+  const linesGroup = document.createElementNS(SVG_NS, "g");
+  linesGroup.setAttribute("id", "adj-lines");
+  for (const p of ADJ_PAIRS) {
+    if (p.edgeExit) {
+      // Draw two short dashed segments with arrows indicating pacific wrap
+      const a = state.territories[p.a];
+      const b = state.territories[p.b];
+      // figure out which is "left" (smaller x) and which is "right"
+      const left = a.x < b.x ? a : b;
+      const right = a.x < b.x ? b : a;
+      // left node exits toward x = -5, right node exits toward x = 1005
+      const l1 = document.createElementNS(SVG_NS, "line");
+      l1.setAttribute("x1", left.x); l1.setAttribute("y1", left.y);
+      l1.setAttribute("x2", -5); l1.setAttribute("y2", left.y);
+      l1.setAttribute("class", "adj-line dashed");
+      l1.setAttribute("data-a", p.a);
+      l1.setAttribute("data-b", p.b);
+      linesGroup.appendChild(l1);
+      const l2 = document.createElementNS(SVG_NS, "line");
+      l2.setAttribute("x1", right.x); l2.setAttribute("y1", right.y);
+      l2.setAttribute("x2", 1005); l2.setAttribute("y2", right.y);
+      l2.setAttribute("class", "adj-line dashed");
+      l2.setAttribute("data-a", p.a);
+      l2.setAttribute("data-b", p.b);
+      linesGroup.appendChild(l2);
+      // arrow glyphs
+      const arrL = document.createElementNS(SVG_NS, "polygon");
+      arrL.setAttribute("points", `0,${left.y-5} -8,${left.y} 0,${left.y+5}`);
+      arrL.setAttribute("class", "edge-arrow");
+      linesGroup.appendChild(arrL);
+      const arrR = document.createElementNS(SVG_NS, "polygon");
+      arrR.setAttribute("points", `1000,${right.y-5} 1008,${right.y} 1000,${right.y+5}`);
+      arrR.setAttribute("class", "edge-arrow");
+      linesGroup.appendChild(arrR);
+    } else {
+      const a = state.territories[p.a];
+      const b = state.territories[p.b];
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", a.x); line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x); line.setAttribute("y2", b.y);
+      line.setAttribute("class", "adj-line");
+      line.setAttribute("data-a", p.a);
+      line.setAttribute("data-b", p.b);
+      linesGroup.appendChild(line);
+    }
+  }
+  svg.appendChild(linesGroup);
+
+  // 4. Territory nodes
+  for (const name of TERR_ORDER) {
+    const t = state.territories[name];
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("class", "node-group hoverable");
+    g.setAttribute("data-name", name);
+    g.setAttribute("transform", `translate(${t.x}, ${t.y})`);
+
+    // Apply selection styling
+    if (state.selected.source === name) g.classList.add("source");
+    if (state.selected.target === name) g.classList.add("target");
+
+    // Invisible touch halo — enlarges tap target for phones (mobile todo #4)
+    const touchHalo = document.createElementNS(SVG_NS, "circle");
+    touchHalo.setAttribute("cx", 0);
+    touchHalo.setAttribute("cy", 0);
+    touchHalo.setAttribute("r", 30);
+    touchHalo.setAttribute("fill", "transparent");
+    touchHalo.setAttribute("pointer-events", "all");
+    touchHalo.setAttribute("class", "node-touch-halo");
+    g.appendChild(touchHalo);
+
+    const circle = document.createElementNS(SVG_NS, "circle");
+    circle.setAttribute("cx", 0); circle.setAttribute("cy", 0);
+    circle.setAttribute("r", 18);
+    circle.setAttribute("class", "node-circle");
+    if (t.owner == null) {
+      circle.classList.add("neutral");
+    } else {
+      const player = playerById(t.owner);
+      circle.setAttribute("fill", player.color);
+      circle.setAttribute("stroke", "#fff");
+    }
+    g.appendChild(circle);
+
+    // army count — tween if changed since last render
+    const count = document.createElementNS(SVG_NS, "text");
+    count.setAttribute("class", "node-label");
+    count.setAttribute("x", 0); count.setAttribute("y", 1);
+    const prev = lastArmiesShown.get(name);
+    if (prev !== undefined && prev !== t.armies) {
+      count.textContent = prev;
+      g.appendChild(count);
+      tweenNumber(count, prev, t.armies, 200);
+    } else {
+      count.textContent = t.armies;
+      g.appendChild(count);
+    }
+    lastArmiesShown.set(name, t.armies);
+
+    // territory name below
+    const lbl = document.createElementNS(SVG_NS, "text");
+    lbl.setAttribute("class", "node-name");
+    lbl.setAttribute("x", 0); lbl.setAttribute("y", 32);
+    lbl.textContent = name;
+    g.appendChild(lbl);
+
+    g.addEventListener("click", () => onTerritoryClick(name));
+    svg.appendChild(g);
+  }
+  // === MARKER: render-map-overlay ===
+  try { RenderExt.overlays(svg); } catch(e){}
+}
+
+function pulseAttackLine(fromName, toName) {
+  const svg = document.getElementById("map-svg");
+  const lines = svg.querySelectorAll("#adj-lines line");
+  for (const line of lines) {
+    const a = line.getAttribute("data-a"), b = line.getAttribute("data-b");
+    if ((a === fromName && b === toName) || (a === toName && b === fromName)) {
+      line.classList.remove("pulse");
+      void line.getBoundingClientRect(); // reflow
+      line.classList.add("pulse");
+      setTimeout(() => line.classList.remove("pulse"), 700);
+    }
+  }
+}
+
+/* =========================================================================
+   SIDEBAR RENDERING
+   ========================================================================= */
+
+function renderSidebar() {
+  const cp = currentPlayer();
+  // Turn info
+  document.getElementById("turn-swatch").style.background = cp ? cp.color : "#888";
+  document.getElementById("turn-name").textContent = cp ? cp.name + (cp.isAI ? " (AI)" : "") : "—";
+  document.getElementById("turn-num").textContent = "Turn " + state.turn;
+
+  // Phase label + help
+  const phaseLbl = document.getElementById("phase-label");
+  const phaseHelp = document.getElementById("phase-help");
+  const phaseNames = {
+    "setup-claim": "CLAIM",
+    "setup-reinforce": "DEPLOY",
+    "reinforce": "REINFORCE",
+    "attack": "ATTACK",
+    "fortify": "FORTIFY",
+    "victory": "VICTORY",
+  };
+  phaseLbl.textContent = phaseNames[state.phase] || state.phase.toUpperCase();
+
+  const helpByPhase = {
+    "setup-claim": "Click any unclaimed territory to plant your flag.",
+    "setup-reinforce": "Click one of your territories to deploy an army.",
+    "reinforce": "Place new armies on territories you control. Trade cards for bonus troops.",
+    "attack": "Click a territory you own with 2+ armies, then click an adjacent enemy to invade.",
+    "fortify": "Move armies once from one of your territories to an adjacent territory you also own.",
+    "victory": "The war is won.",
+  };
+  phaseHelp.textContent = helpByPhase[state.phase] || "";
+
+  // Controls panel
+  renderControls();
+  // Roster
+  renderRoster();
+  // Log
+  renderLog();
+}
+
+function renderControls() {
+  const root = document.getElementById("controls-panel");
+  root.innerHTML = "";
+  const cp = currentPlayer();
+  if (!cp) return;
+
+  if (state.phase === "setup-claim") {
+    const unclaimed = TERR_ORDER.filter(n => state.territories[n].owner == null).length;
+    root.innerHTML = `
+      <div class="stat-row"><span class="lbl">Unclaimed</span><span class="val">${unclaimed}</span></div>
+      <div class="stat-row"><span class="lbl">Your Armies Remaining</span><span class="val">${cp.armies}</span></div>
+    `;
+    return;
+  }
+  if (state.phase === "setup-reinforce") {
+    const totalLeft = state.players.reduce((s, p) => s + p.armies, 0);
+    root.innerHTML = `
+      <div class="stat-row"><span class="lbl">Your Armies Remaining</span><span class="val">${cp.armies}</span></div>
+      <div class="stat-row"><span class="lbl">Total in Pool</span><span class="val">${totalLeft}</span></div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">Players cycle, deploying 1 army per turn until all pools are empty.</div>
+    `;
+    return;
+  }
+  if (state.phase === "reinforce") {
+    let html = `
+      <div class="stat-row"><span class="lbl">Armies to Place</span><span class="val">${state.pendingReinforcements}</span></div>
+      <div class="stat-row"><span class="lbl">Territories</span><span class="val">${ownedBy(cp.id).length}</span></div>
+      <div class="stat-row"><span class="lbl">Continents</span><span class="val">${ownedContinents(cp.id).length}</span></div>
+      <div class="stat-row"><span class="lbl">Set Bonus Next</span><span class="val">${nextTradeValue(state.setsTradedGlobal)}</span></div>
+    `;
+    const canTrade = cp.cards.length >= 3 && !cp.isAI;
+    const mustTrade = cp.cards.length >= 5;
+    if (cp.cards.length > 0) {
+      html += `<div class="section-title" style="margin-top:10px;">Cards (${cp.cards.length})</div>`;
+      if (canTrade) {
+        html += `<div style="font-size:10px;color:var(--text-3);margin-bottom:6px;line-height:1.4">Click 3 cards: three of a kind, one of each type, or any two + a Wild. ★ = matching territory (+2).</div>`;
+      }
+      html += `<div class="card-list" id="card-list">`;
+      cp.cards.forEach((c, i) => {
+        const matches = c.territory && state.territories[c.territory] && state.territories[c.territory].owner === cp.id;
+        const sel = state.selectedCards.includes(i);
+        const cls = ["card-chip"];
+        if (c.type === "Wild") cls.push("wild");
+        if (sel) cls.push("selected");
+        if (matches) cls.push("match");
+        const label = c.type === "Wild" ? "✦ Wild" : (c.type[0] + " · " + c.territory);
+        html += `<span class="${cls.join(' ')}" data-card-idx="${i}">${label}</span>`;
+      });
+      html += `</div>`;
+      if (canTrade) {
+        const selCards = state.selectedCards.map(i => cp.cards[i]);
+        const isValid = selCards.length === 3 && validSet(selCards);
+        html += `<button class="btn full" id="trade-btn" ${isValid ? "" : "disabled"}>${mustTrade ? "Trade (Required)" : "Trade Set"}</button>`;
+      }
+    }
+    if (!cp.isAI && state.pendingReinforcements === 0 && !state.midAttackPlacement) {
+      html += `<button class="btn full" id="next-phase-btn">Begin Attacks →</button>`;
+    }
+    root.innerHTML = html;
+
+    // Wire card clicks
+    if (!cp.isAI) {
+      root.querySelectorAll(".card-chip").forEach(el => {
+        el.addEventListener("click", () => {
+          const idx = parseInt(el.dataset.cardIdx, 10);
+          const pos = state.selectedCards.indexOf(idx);
+          if (pos >= 0) state.selectedCards.splice(pos, 1);
+          else if (state.selectedCards.length < 3) state.selectedCards.push(idx);
+          render();
+        });
+      });
+      const tradeBtn = document.getElementById("trade-btn");
+      if (tradeBtn) tradeBtn.addEventListener("click", onHumanTrade);
+      const nextBtn = document.getElementById("next-phase-btn");
+      if (nextBtn) nextBtn.addEventListener("click", () => {
+        if (cp.cards.length >= 5) {
+          toast("You must trade cards before ending reinforcement.");
+          return;
+        }
+        if (state.pendingReinforcements > 0) {
+          toast("Place remaining armies first.");
+          return;
+        }
+        state.phase = "attack";
+        render();
+      });
+    }
+    return;
+  }
+  if (state.phase === "attack") {
+    const src = state.selected.source ? state.territories[state.selected.source] : null;
+    const tgt = state.selected.target ? state.territories[state.selected.target] : null;
+    let html = `
+      <div class="sel-display">
+        Source: <span class="terr">${state.selected.source ?? "—"}</span>${src ? ` (${src.armies})` : ""}<br>
+        Target: <span class="terr">${state.selected.target ?? "—"}</span>${tgt ? ` (${tgt.armies})` : ""}
+      </div>
+    `;
+    if (src && tgt) {
+      const maxAtk = Math.min(3, src.armies - 1);
+      html += `<div class="stat-row"><span class="lbl">Attacker Dice</span><span class="val">${maxAtk}</span></div>`;
+      html += `<div class="stat-row"><span class="lbl">Defender Dice</span><span class="val">${Math.min(2, tgt.armies)}</span></div>`;
+      html += `<button class="btn" id="roll-once-btn">Roll Once</button>`;
+      html += `<button class="btn" id="blitz-btn">Blitz</button>`;
+      html += `<button class="btn secondary" id="clear-sel-btn">Clear</button>`;
+    }
+    html += `<div class="dice-row" id="dice-row"></div>`;
+    html += `<button class="btn danger full" id="end-attack-btn">End Attacks →</button>`;
+    root.innerHTML = html;
+
+    if (!cp.isAI) {
+      const rb = document.getElementById("roll-once-btn");
+      const bb = document.getElementById("blitz-btn");
+      const cb = document.getElementById("clear-sel-btn");
+      const eb = document.getElementById("end-attack-btn");
+      if (rb) rb.addEventListener("click", () => humanAttack(false));
+      if (bb) bb.addEventListener("click", () => humanAttack(true));
+      if (cb) cb.addEventListener("click", () => { state.selected.source = null; state.selected.target = null; state.lastDice = null; render(); });
+      if (eb) eb.addEventListener("click", endAttackPhase);
+    } else {
+      // disable during AI
+      root.querySelectorAll("button").forEach(b => b.disabled = true);
+    }
+    // Restore any persisted dice (without re-shaking)
+    renderDiceFromState(false);
+    return;
+  }
+  if (state.phase === "fortify") {
+    const src = state.selected.source ? state.territories[state.selected.source] : null;
+    const tgt = state.selected.target ? state.territories[state.selected.target] : null;
+    let html = `
+      <div class="sel-display">
+        From: <span class="terr">${state.selected.source ?? "—"}</span>${src ? ` (${src.armies})` : ""}<br>
+        To: <span class="terr">${state.selected.target ?? "—"}</span>${tgt ? ` (${tgt.armies})` : ""}
+      </div>
+    `;
+    if (src && tgt) {
+      const max = src.armies - 1;
+      html += `<div class="slider-row">
+        <input type="range" min="1" max="${max}" value="${max}" id="fortify-slider">
+        <span class="count" id="fortify-count">${max}</span>
+      </div>`;
+      html += `<button class="btn" id="confirm-fortify-btn">Confirm Move</button>`;
+    }
+    html += `<button class="btn secondary full" id="skip-fortify-btn">Skip Fortify (End Turn)</button>`;
+    root.innerHTML = html;
+
+    if (!cp.isAI) {
+      const sl = document.getElementById("fortify-slider");
+      const ct = document.getElementById("fortify-count");
+      if (sl) sl.addEventListener("input", () => ct.textContent = sl.value);
+      const cb = document.getElementById("confirm-fortify-btn");
+      if (cb) cb.addEventListener("click", () => {
+        const n = parseInt(document.getElementById("fortify-slider").value, 10);
+        doFortify(state.selected.source, state.selected.target, n);
+      });
+      const sk = document.getElementById("skip-fortify-btn");
+      if (sk) sk.addEventListener("click", endTurn);
+    } else {
+      root.querySelectorAll("button, input").forEach(b => b.disabled = true);
+    }
+    return;
+  }
+}
+
+function renderRoster() {
+  const root = document.getElementById("roster");
+  root.innerHTML = "";
+  state.players.forEach((p, idx) => {
+    const tCount = ownedBy(p.id).length;
+    const aCount = TERR_ORDER.reduce((s, n) => s + (state.territories[n].owner === p.id ? state.territories[n].armies : 0), 0);
+    const row = document.createElement("div");
+    row.className = "roster-row" + (idx === state.currentPlayerIdx ? " active" : "") + (p.eliminated ? " eliminated" : "");
+    const archLabel = p.personality ? `<span style='color:${p.personality.color};font-weight:500;font-size:10px'> · ${p.personality.name}</span>` : "";
+    row.innerHTML = `
+      <span class="swatch" style="background:${p.color}"></span>
+      <span class="pname">${p.name}${p.isAI ? " <span style='color:var(--text-3);font-weight:400'>(AI)</span>" : ""}${archLabel}</span>
+      <span class="rstat" title="Territories">${tCount}⌂</span>
+      <span class="rstat" title="Armies">${aCount}⚔</span>
+      <span class="rstat" title="Cards">${p.cards.length}🂠</span>
+      ${RenderExt.roster(p)}
+    `;
+    root.appendChild(row);
+  });
+}
+
+function renderLog() {
+  const list = document.getElementById("log-list");
+  const entries = state.log.slice(-12);
+  list.innerHTML = entries.map(e => `<div class="entry">${e}</div>`).join("");
+  list.scrollTop = list.scrollHeight;
+}
+
+/* =========================================================================
+   MASTER RENDER
+   ========================================================================= */
+
+function render() {
+  if (!state) return;
+  renderMap();
+  renderSidebar();
+  // Mobile: auto-pick an appropriate tab when the phase changes (todo 14)
+  if (typeof autoSwitchTab === "function") autoSwitchTab();
+}
+
+/* =========================================================================
+   SETUP SCREEN
+   ========================================================================= */
+
+function renderSetupSlots() {
+  const count = parseInt(document.getElementById("player-count").value, 10);
+  const root = document.getElementById("player-slots");
+  root.innerHTML = "";
+  const classicMode = document.getElementById("classic-mode")?.checked || false;
+  const humanName = "You";
+  const archList = Arch.list();
+  for (let i = 0; i < count; i++) {
+    const slot = document.createElement("div");
+    slot.className = "player-slot";
+    const defaultName = i === 0 ? "You" : `AI ${i}`;
+    const defaultRole = i === 0 ? "human" : "ai";
+    const defaultArch = i === 0 ? "" : archList[(i - 1) % archList.length];
+    // === MARKER: setup-ui-slots ===
+    slot.innerHTML = `
+      <div class="swatch" style="background:${PALETTE[i].color}"></div>
+      <input type="text" class="p-name" data-slot="${i}" value="${defaultName}">
+      <select class="p-role" data-slot="${i}">
+        <option value="human" ${defaultRole==="human"?"selected":""}>Human</option>
+        <option value="ai" ${defaultRole==="ai"?"selected":""}>AI</option>
+      </select>
+      <select class="p-arch" data-slot="${i}" ${defaultRole === "human" || classicMode ? "disabled" : ""}>
+        <option value="">— Classic —</option>
+        ${archList.map(id => {
+          const a = Arch.get(id);
+          const rec = Persist.isEnabled() ? Persist.record(humanName, id) : null;
+          const label = rec && (rec.wins || rec.losses) ? `${a.name} (${rec.wins}W-${rec.losses}L)` : a.name;
+          return `<option value="${id}" ${id === defaultArch ? "selected" : ""}>${label}</option>`;
+        }).join("")}
+      </select>
+      <div class="arch-desc" data-slot="${i}"></div>
+    `;
+    root.appendChild(slot);
+  }
+  root.querySelectorAll(".p-arch").forEach(sel => {
+    sel.addEventListener("change", () => updateArchDescription(sel));
+    updateArchDescription(sel);
+  });
+  root.querySelectorAll(".p-role").forEach(sel => {
+    sel.addEventListener("change", () => {
+      const s = sel.dataset.slot;
+      const archSel = root.querySelector(`.p-arch[data-slot="${s}"]`);
+      const isHuman = sel.value === "human";
+      const cm = document.getElementById("classic-mode")?.checked || false;
+      if (archSel) {
+        archSel.disabled = isHuman || cm;
+        updateArchDescription(archSel);
+      }
+    });
+  });
+}
+
+function updateArchDescription(archSelect) {
+  const slot = archSelect.dataset.slot;
+  const descEl = document.querySelector(`.arch-desc[data-slot="${slot}"]`);
+  if (!descEl) return;
+  const arch = Arch.get(archSelect.value);
+  if (!arch || archSelect.disabled) {
+    descEl.innerHTML = "";
+  } else {
+    let ruleHint = "";
+    if (arch.ruleMods) {
+      const rm = arch.ruleMods;
+      const bits = [];
+      if (rm.reinforceBonus) bits.push(`+${rm.reinforceBonus} reinforce`);
+      if (rm.minAttackStack) bits.push(`min ${rm.minAttackStack} stack`);
+      if (rm.noAttackBeforeTurn) bits.push(`no attack before T${rm.noAttackBeforeTurn}`);
+      if (rm.rerollOneLoss) bits.push(`reroll`);
+      if (bits.length) ruleHint = ` <span style="color:var(--crimson)">[${bits.join(", ")}]</span>`;
+    }
+    descEl.innerHTML = `<span class="arch-era">${arch.era}</span> — ${arch.description}${ruleHint}`;
+  }
+}
+
+function initSetupScreen() {
+  renderSetupSlots();
+  document.getElementById("player-count").addEventListener("change", renderSetupSlots);
+  document.getElementById("start-game-btn").addEventListener("click", startGame);
+  const classicToggle = document.getElementById("classic-mode");
+  if (classicToggle) classicToggle.addEventListener("change", renderSetupSlots);
+  const persistToggle = document.getElementById("persist-enabled");
+  if (persistToggle) {
+    persistToggle.checked = Persist.isEnabled();
+    persistToggle.addEventListener("change", () => {
+      Persist.setEnabled(persistToggle.checked);
+      renderSetupSlots();
+    });
+  }
+  // Last game summary
+  const lg = Persist.isEnabled() ? Persist.lastGame() : null;
+  const lgEl = document.getElementById("last-game-summary");
+  if (lgEl) {
+    lgEl.innerHTML = lg ? `Last: <b>${lg.winner}</b> won — ${new Date(lg.timestamp).toLocaleDateString()}` : "";
+  }
+}
+
+function startGame() {
+  const count = parseInt(document.getElementById("player-count").value, 10);
+  const nameInputs = document.querySelectorAll(".p-name");
+  const roleInputs = document.querySelectorAll(".p-role");
+  const archInputs = document.querySelectorAll(".p-arch");
+  const classicMode = document.getElementById("classic-mode")?.checked || false;
+  const players = [];
+  for (let i = 0; i < count; i++) {
+    const isAI = roleInputs[i].value === "ai";
+    players.push({
+      id: i,
+      name: nameInputs[i].value.trim() || `Player ${i+1}`,
+      color: PALETTE[i].color,
+      isAI,
+      archId: (isAI && !classicMode && archInputs[i]) ? (archInputs[i].value || null) : null,
+      armies: STARTING_ARMIES[count],
+      cards: [],
+      eliminated: false,
+      // === MARKER: player-extensions ===
+      personality: null,
+      runtimeWeights: null,
+      runtimeTemperature: 1.0,
+      regretTempAccum: 0,
+      mood: "neutral",
+      grudges: {},
+      goal: null,
+      goalProgress: 0,
+      currentPlan: null,
+      openingBook: null,
+      ruleMods: {},
+    });
+  }
+  state = freshState();
+  state.players = shuffle(players); // randomize turn order
+  state.players.forEach((p, i) => { p.id = i; });
+  // Attach personalities via Persona
+  state.players.forEach(p => Persona.attach(p, p.archId));
+
+  // Territories init
+  for (const name of TERR_ORDER) {
+    const [cont, x, y, adj] = TERR_DATA[name];
+    state.territories[name] = { owner: null, armies: 0, continent: cont, x, y, adj };
+  }
+  // Deck
+  state.deck = shuffle(buildDeck());
+
+  // Distribute territories — use book-weighted draft if any AI has a book
+  const hasBooks = state.players.some(p => p.personality?.openingBook);
+  if (hasBooks) {
+    const unclaimed = new Set(TERR_ORDER);
+    let turn = 0;
+    while (unclaimed.size > 0) {
+      const p = state.players[turn % state.players.length];
+      const candidates = [...unclaimed];
+      let best = { name: candidates[0], score: -Infinity };
+      for (const nm of candidates) {
+        const score = (p.personality ? Book.claimScore(p, nm) : 0) + Math.random() * 5;
+        if (score > best.score) best = { name: nm, score };
+      }
+      state.territories[best.name].owner = p.id;
+      state.territories[best.name].armies = 1;
+      p.armies -= 1;
+      unclaimed.delete(best.name);
+      turn++;
+    }
+  } else {
+    const order = shuffle(TERR_ORDER);
+    order.forEach((name, i) => {
+      const pIdx = i % state.players.length;
+      const player = state.players[pIdx];
+      state.territories[name].owner = player.id;
+      state.territories[name].armies = 1;
+      player.armies -= 1;
+    });
+  }
+
+  log(`A new war begins. ${state.players.map(p => p.name).join(" → ")} take turns.`);
+  state.phase = "setup-reinforce";
+  state.currentPlayerIdx = 0;
+  document.getElementById("setup-overlay").classList.add("hidden");
+  render();
+  // === MARKER: hook-game-start ===
+  Hooks.emit("gameStart", { players: state.players });
+  scheduleIfAI();
+}
+
+/* =========================================================================
+   TERRITORY CLICK HANDLING
+   ========================================================================= */
+
+function onTerritoryClick(name) {
+  const cp = currentPlayer();
+  if (!cp || cp.isAI) return;
+  const t = state.territories[name];
+  if (state.phase === "setup-reinforce") {
+    if (t.owner !== cp.id) { toast("Deploy only on your territories."); return; }
+    t.armies += 1;
+    cp.armies -= 1;
+    log(`${cp.name} deploys 1 army to ${name}.`);
+    animateCount(name);
+    advanceSetupReinforce();
+    render();
+    return;
+  }
+  if (state.phase === "reinforce") {
+    if (t.owner !== cp.id) { toast("You don't control that territory."); return; }
+    if (state.pendingReinforcements <= 0) { toast("No more armies to place."); return; }
+    t.armies += 1;
+    state.pendingReinforcements -= 1;
+    animateCount(name);
+    render();
+    // If this was mid-attack forced-trade placement, resume the attack flow
+    if (state.midAttackPlacement && state.pendingReinforcements === 0 && midAttackResume) {
+      const fn = midAttackResume;
+      midAttackResume = null;
+      fn();
+    }
+    return;
+  }
+  if (state.phase === "attack") {
+    if (!state.selected.source) {
+      if (t.owner !== cp.id) { toast("Select one of your territories first."); return; }
+      if (t.armies < 2) { toast("Need at least 2 armies to attack."); return; }
+      state.selected.source = name;
+      render();
+      return;
+    }
+    // have source; click target or change source
+    if (t.owner === cp.id) {
+      if (t.armies < 2) { toast("Need at least 2 armies to attack."); return; }
+      state.selected.source = name;
+      state.selected.target = null;
+      render();
+      return;
+    }
+    // enemy territory: must be adjacent to source
+    if (!state.territories[state.selected.source].adj.includes(name)) {
+      toast("Not adjacent to your selected territory.");
+      return;
+    }
+    state.selected.target = name;
+    render();
+    return;
+  }
+  if (state.phase === "fortify") {
+    if (!state.selected.source) {
+      if (t.owner !== cp.id) { toast("Select one of your territories first."); return; }
+      if (t.armies < 2) { toast("Need 2+ armies to move from there."); return; }
+      state.selected.source = name;
+      render();
+      return;
+    }
+    if (t.owner === cp.id && name !== state.selected.source) {
+      if (!state.territories[state.selected.source].adj.includes(name)) {
+        // allow re-selecting source
+        if (t.armies >= 2) {
+          state.selected.source = name; state.selected.target = null;
+          render(); return;
+        }
+        toast("Destination must be adjacent.");
+        return;
+      }
+      state.selected.target = name;
+      render();
+      return;
+    }
+    toast("Destination must be one of your adjacent territories.");
+    return;
+  }
+}
+
+/* =========================================================================
+   ANIMATIONS
+   ========================================================================= */
+
+function animateCount(name) {
+  // Simple pulse via transient scale — the render already shows the new number;
+  // we briefly apply source-glow class, then remove it.
+  setTimeout(() => {
+    const g = document.querySelector(`.node-group[data-name="${CSS.escape(name)}"]`);
+    if (!g) return;
+    g.classList.add("selected");
+    setTimeout(() => g.classList.remove("selected"), 220);
+  }, 10);
+}
+
+/* =========================================================================
+   SETUP PHASE: cycling reinforcement
+   ========================================================================= */
+
+function advanceSetupReinforce() {
+  // advance to next player that still has armies
+  const n = state.players.length;
+  for (let step = 1; step <= n; step++) {
+    const idx = (state.currentPlayerIdx + step) % n;
+    if (state.players[idx].armies > 0) {
+      state.currentPlayerIdx = idx;
+      scheduleIfAI();
+      return;
+    }
+  }
+  // Nobody has armies — start real game
+  state.currentPlayerIdx = 0;
+  state.phase = "reinforce";
+  beginReinforcePhase();
+}
+
+function beginReinforcePhase() {
+  const cp = currentPlayer();
+  if (cp.eliminated) { advanceTurn(); return; }
+  state.pendingReinforcements = calcReinforcements(cp.id);
+  state.conqueredThisTurn = false;
+  state.fortifyUsed = false;
+  state.selected = { source: null, target: null };
+  state.selectedCards = [];
+  // === MARKER: hook-turn-start ===
+  Hooks.emit("turnStart", { player: cp, turn: state.turn });
+  log(`— ${cp.name}'s turn ${state.turn} begins. Reinforcements: ${state.pendingReinforcements}.`);
+  render();
+  // Mandatory trade check
+  if (cp.cards.length >= 5) {
+    if (cp.isAI) {
+      aiForceTrade(cp, /*duringAttack*/ false);
+    } else {
+      openHumanForcedTradeModal();
+    }
+    return;
+  }
+  scheduleIfAI();
+}
+
+/* =========================================================================
+   CARD TRADING (HUMAN)
+   ========================================================================= */
+
+function onHumanTrade() {
+  const cp = currentPlayer();
+  const indices = state.selectedCards.slice().sort((a,b)=>b-a);
+  const trio = indices.map(i => cp.cards[i]);
+  if (!validSet(trio)) { toast("Not a valid set."); return; }
+  executeTrade(cp, indices);
+  state.selectedCards = [];
+  render();
+  if (cp.cards.length >= 5) {
+    openHumanForcedTradeModal();
+  }
+}
+
+function executeTrade(player, indices) {
+  // indices must be sorted desc
+  const sorted = indices.slice().sort((a,b)=>b-a);
+  const trio = sorted.map(i => player.cards[i]);
+  const value = nextTradeValue(state.setsTradedGlobal);
+  state.setsTradedGlobal += 1;
+  // Remove cards from hand + move to discard
+  sorted.forEach(i => {
+    state.discard.push(player.cards[i]);
+    player.cards.splice(i, 1);
+  });
+  // bonus armies
+  state.pendingReinforcements += value;
+  if (player.personality) flog("trade", { value }, player);
+  else log(`${player.name} trades a set for <b>+${value}</b> armies (total ${state.setsTradedGlobal} sets traded).`);
+  // +2 for each matching owned territory — classic Risk only gives +2 on one matched
+  // Rule from prompt: "When a player trades in a card whose territory they currently own, place +2 armies directly on that territory"
+  for (const card of trio) {
+    if (!card.territory) continue;
+    const terr = state.territories[card.territory];
+    if (terr.owner === player.id) {
+      terr.armies += 2;
+      log(`+2 armies placed on ${card.territory} (matched card).`);
+    }
+  }
+}
+
+function openHumanForcedTradeModal() {
+  const cp = currentPlayer();
+  if (cp.cards.length < 5) return;
+  // For human we show a modal asking them to select + trade until < 5.
+  const root = document.getElementById("modal-root");
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  const m = document.createElement("div");
+  m.className = "modal";
+  m.innerHTML = `
+    <h2>Mandatory Trade</h2>
+    <div class="subtext">You hold ${cp.cards.length} cards. You must trade sets down to 4 or fewer before continuing.</div>
+    <div class="card-list" id="forced-card-list"></div>
+    <div class="modal-buttons">
+      <button class="btn" id="forced-trade-btn" disabled>Trade Selected</button>
+    </div>
+  `;
+  backdrop.appendChild(m);
+  root.appendChild(backdrop);
+  const selected = new Set();
+  function refresh() {
+    const list = m.querySelector("#forced-card-list");
+    list.innerHTML = "";
+    cp.cards.forEach((c, i) => {
+      const matches = c.territory && state.territories[c.territory].owner === cp.id;
+      const cls = ["card-chip"];
+      if (c.type === "Wild") cls.push("wild");
+      if (selected.has(i)) cls.push("selected");
+      if (matches) cls.push("match");
+      const span = document.createElement("span");
+      span.className = cls.join(" ");
+      span.textContent = c.type === "Wild" ? "✦ Wild" : (c.type[0] + " · " + c.territory);
+      span.addEventListener("click", () => {
+        if (selected.has(i)) selected.delete(i);
+        else if (selected.size < 3) selected.add(i);
+        refresh();
+      });
+      list.appendChild(span);
+    });
+    const trio = Array.from(selected).map(i => cp.cards[i]);
+    const btn = m.querySelector("#forced-trade-btn");
+    btn.disabled = !(trio.length === 3 && validSet(trio));
+  }
+  refresh();
+  m.querySelector("#forced-trade-btn").addEventListener("click", () => {
+    const idxs = Array.from(selected).sort((a,b)=>b-a);
+    executeTrade(cp, idxs);
+    backdrop.remove();
+    render();
+    if (cp.cards.length >= 5) openHumanForcedTradeModal();
+  });
+}
+
+/* =========================================================================
+   COMBAT
+   ========================================================================= */
+
+function humanAttack(blitz) {
+  const src = state.selected.source;
+  const tgt = state.selected.target;
+  if (!src || !tgt) { toast("Pick source and target."); return; }
+  if (blitz) {
+    runBlitz(src, tgt, () => { render(); });
+  } else {
+    runOneRoll(src, tgt, () => { render(); });
+  }
+}
+
+// Resolves one combat round. After animation, invokes callback.
+function runOneRoll(srcName, tgtName, cb) {
+  const src = state.territories[srcName];
+  const tgt = state.territories[tgtName];
+  if (src.armies < 2) { toast("Source can't attack (1 army)."); cb && cb(); return; }
+  const cp = currentPlayer();
+  const atkCount = Math.min(3, src.armies - 1);
+  const defCount = Math.min(2, tgt.armies);
+  let atkDice = Array.from({length: atkCount}, rollDie).sort((a,b)=>b-a);
+  const defDice = Array.from({length: defCount}, rollDie).sort((a,b)=>b-a);
+  // Prophet reroll (Rule.rerollAtkDie)
+  atkDice = Rule.rerollAtkDie(cp, atkDice, defDice);
+  let atkL = 0, defL = 0;
+  const comparisons = Math.min(atkDice.length, defDice.length);
+  for (let i = 0; i < comparisons; i++) {
+    if (atkDice[i] > defDice[i]) defL++;
+    else atkL++;
+  }
+  src.armies -= atkL;
+  tgt.armies -= defL;
+  const defenderPlayer = playerById(tgt.owner);
+  // Render dice with animation in sidebar
+  showDiceInSidebar(atkDice, defDice);
+  pulseAttackLine(srcName, tgtName);
+  if (typeof buzz === "function") buzz(15);
+
+  let resultMsg = `${srcName} attacks ${tgtName}: atk [${atkDice.join(",")}] vs def [${defDice.join(",")}] → atk loses ${atkL}, def loses ${defL}.`;
+  if (tgt.armies <= 0) {
+    resultMsg += ` <b>${tgtName} captured!</b>`;
+  }
+  log(resultMsg);
+  // === MARKER: hook-attack ===
+  Hooks.emit("attack", {
+    source: srcName, target: tgtName,
+    atkDice, defDice, atkLost: atkL, defLost: defL,
+    captured: tgt.armies <= 0,
+    attacker: cp,
+    defender: defenderPlayer,
+  });
+
+  setTimeout(() => {
+    if (tgt.armies <= 0) {
+      // Territory captured
+      onTerritoryCaptured(srcName, tgtName, atkCount, cb);
+    } else {
+      render();
+      cb && cb();
+    }
+  }, 420);
+}
+
+function onTerritoryCaptured(srcName, tgtName, atkDiceRolled, cb) {
+  const src = state.territories[srcName];
+  const tgt = state.territories[tgtName];
+  const cp = currentPlayer();
+  const defenderId = tgt.owner;
+  // Transfer ownership
+  tgt.owner = cp.id;
+  tgt.armies = 0; // will be moved in
+  state.conqueredThisTurn = true;
+  if (typeof buzz === "function" && !cp.isAI) buzz(50);
+  // === MARKER: hook-capture ===
+  Hooks.emit("capture", { source: srcName, target: tgtName, attacker: cp, defender: playerById(defenderId) });
+  // Check defender elimination
+  const defender = playerById(defenderId);
+  const defenderEliminated = defender && !ownedBy(defenderId).length;
+  if (defenderEliminated) {
+    defender.eliminated = true;
+    log(`<b>${defender.name} has been eliminated by ${cp.name}!</b>`);
+    // === MARKER: hook-eliminate ===
+    Hooks.emit("eliminate", { attacker: cp, defender });
+    // Transfer cards
+    if (defender.cards.length > 0) {
+      cp.cards.push(...defender.cards);
+      log(`${cp.name} seizes ${defender.cards.length} card(s) from ${defender.name}.`);
+      defender.cards = [];
+    }
+  }
+
+  // Check victory (everyone else eliminated)
+  const remaining = state.players.filter(p => !p.eliminated);
+  if (remaining.length === 1 || ownedBy(cp.id).length === TERR_ORDER.length) {
+    render();
+    setTimeout(() => declareVictory(cp), 400);
+    return;
+  }
+
+  // Prompt army move
+  const min = Math.max(1, atkDiceRolled);
+  const max = src.armies - 1;
+  const movable = Math.max(min, 0);
+  if (max < min) {
+    // edge case: shouldn't happen since winning required armies, but fallback
+    const mv = Math.max(1, src.armies - 1);
+    src.armies -= mv;
+    tgt.armies += mv;
+    afterArmyMove(cp, defenderEliminated, cb);
+    return;
+  }
+  if (cp.isAI) {
+    // AI moves max
+    const mv = max;
+    src.armies -= mv;
+    tgt.armies += mv;
+    if (cp.personality) flog("capture", { source: srcName, target: tgtName, count: mv }, cp);
+    else log(`${cp.name} moves ${mv} armies into ${tgtName}.`);
+    render();
+    setTimeout(() => afterArmyMove(cp, defenderEliminated, cb), 200);
+  } else {
+    openMoveModal(srcName, tgtName, min, max, () => {
+      afterArmyMove(cp, defenderEliminated, cb);
+    });
+  }
+}
+
+function openMoveModal(srcName, tgtName, min, max, done) {
+  const root = document.getElementById("modal-root");
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  const m = document.createElement("div");
+  m.className = "modal";
+  m.innerHTML = `
+    <h2>Advance Armies</h2>
+    <div class="subtext">Captured <b>${tgtName}</b>. Move armies from <b>${srcName}</b> into the conquered territory. Minimum ${min}, maximum ${max}.</div>
+    <div class="slider-row">
+      <input type="range" min="${min}" max="${max}" value="${max}" id="move-slider">
+      <span class="count" id="move-count">${max}</span>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn" id="move-confirm-btn">Advance</button>
+    </div>
+  `;
+  backdrop.appendChild(m);
+  root.appendChild(backdrop);
+  const sl = m.querySelector("#move-slider");
+  const ct = m.querySelector("#move-count");
+  sl.addEventListener("input", () => ct.textContent = sl.value);
+  m.querySelector("#move-confirm-btn").addEventListener("click", () => {
+    const n = parseInt(sl.value, 10);
+    state.territories[srcName].armies -= n;
+    state.territories[tgtName].armies += n;
+    log(`${currentPlayer().name} moves ${n} armies into ${tgtName}.`);
+    backdrop.remove();
+    render();
+    done && done();
+  });
+}
+
+function afterArmyMove(cp, defenderEliminated, cb) {
+  // keep target selected as new source if armies > 1 — standard Risk allows continued attacks
+  // The prompt says human clicks to pick next. We'll clear target but keep source possibility by resetting.
+  state.selected.target = null;
+  // If eliminator holds ≥5 cards now, force trade
+  if (defenderEliminated && cp.cards.length >= 5) {
+    if (cp.isAI) {
+      aiForceTrade(cp, /*duringAttack*/ true, () => {
+        render();
+        cb && cb();
+      });
+    } else {
+      openHumanForcedTradeAttack(cb);
+    }
+    return;
+  }
+  render();
+  cb && cb();
+}
+
+function openHumanForcedTradeAttack(done) {
+  const cp = currentPlayer();
+  if (cp.cards.length < 5) { done && done(); return; }
+  const root = document.getElementById("modal-root");
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  const m = document.createElement("div");
+  m.className = "modal";
+  m.innerHTML = `
+    <h2>Forced Trade (Mid-Attack)</h2>
+    <div class="subtext">You seized cards from an eliminated foe and now hold ${cp.cards.length}. Trade a set immediately. Bonus armies will be placed on your territories now.</div>
+    <div class="card-list" id="mid-trade-list"></div>
+    <div class="modal-buttons">
+      <button class="btn" id="mid-trade-btn" disabled>Trade Set</button>
+    </div>
+  `;
+  backdrop.appendChild(m);
+  root.appendChild(backdrop);
+  const selected = new Set();
+  function refresh() {
+    const list = m.querySelector("#mid-trade-list");
+    list.innerHTML = "";
+    cp.cards.forEach((c, i) => {
+      const matches = c.territory && state.territories[c.territory].owner === cp.id;
+      const cls = ["card-chip"];
+      if (c.type === "Wild") cls.push("wild");
+      if (selected.has(i)) cls.push("selected");
+      if (matches) cls.push("match");
+      const span = document.createElement("span");
+      span.className = cls.join(" ");
+      span.textContent = c.type === "Wild" ? "✦ Wild" : (c.type[0] + " · " + c.territory);
+      span.addEventListener("click", () => {
+        if (selected.has(i)) selected.delete(i);
+        else if (selected.size < 3) selected.add(i);
+        refresh();
+      });
+      list.appendChild(span);
+    });
+    const trio = Array.from(selected).map(i => cp.cards[i]);
+    m.querySelector("#mid-trade-btn").disabled = !(trio.length === 3 && validSet(trio));
+  }
+  refresh();
+  m.querySelector("#mid-trade-btn").addEventListener("click", () => {
+    const idxs = Array.from(selected).sort((a,b)=>b-a);
+    executeTrade(cp, idxs);
+    // place bonus armies: open mid-attack placement modal
+    backdrop.remove();
+    // Place armies now (human clicks)
+    openMidAttackPlacementModal(done);
+  });
+}
+
+function openMidAttackPlacementModal(done) {
+  const cp = currentPlayer();
+  if (state.pendingReinforcements <= 0) {
+    // done — but might still need another trade if still ≥5
+    if (cp.cards.length >= 5) { openHumanForcedTradeAttack(done); return; }
+    done && done();
+    return;
+  }
+  const root = document.getElementById("modal-root");
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  const m = document.createElement("div");
+  m.className = "modal";
+  m.innerHTML = `
+    <h2>Place Bonus Armies</h2>
+    <div class="subtext">Close this and click your territories on the map to place ${state.pendingReinforcements} bonus armies. You will automatically return to the attack phase once all are placed.</div>
+    <div class="modal-buttons">
+      <button class="btn" id="mid-place-done-btn">OK</button>
+    </div>
+  `;
+  backdrop.appendChild(m);
+  root.appendChild(backdrop);
+  m.querySelector("#mid-place-done-btn").addEventListener("click", () => {
+    backdrop.remove();
+    // Switch to reinforce phase with mid-attack flag; onTerritoryClick will
+    // fire the resume callback once pendingReinforcements hits 0.
+    state.midAttackPlacement = true;
+    midAttackResume = () => {
+      state.midAttackPlacement = false;
+      if (cp.cards.length >= 5) {
+        openHumanForcedTradeAttack(done);
+      } else {
+        state.phase = "attack";
+        render();
+        done && done();
+      }
+    };
+    state.phase = "reinforce";
+    render();
+  });
+}
+
+function showDiceInSidebar(atkDice, defDice) {
+  // Persist in state so they survive re-renders
+  state.lastDice = { atk: atkDice.slice(), def: defDice.slice(), shakeId: Date.now() };
+  renderDiceFromState(true);
+}
+function renderDiceFromState(withShake) {
+  const row = document.getElementById("dice-row");
+  if (!row) return;
+  row.innerHTML = "";
+  if (!state.lastDice) return;
+  state.lastDice.atk.forEach(v => row.appendChild(makeDie(v, "atk")));
+  state.lastDice.def.forEach(v => row.appendChild(makeDie(v, "def")));
+  if (withShake) {
+    setTimeout(() => row.querySelectorAll(".die").forEach(d => d.classList.add("shake")), 0);
+  }
+}
+function makeDie(value, kind) {
+  const el = document.createElement("div");
+  el.className = "die " + kind;
+  // pip positions (grid index) for values 1..6
+  const PIP_MAP = {
+    1: [4],
+    2: [0, 8],
+    3: [0, 4, 8],
+    4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8],
+    6: [0, 2, 3, 5, 6, 8],
+  };
+  const pips = new Set(PIP_MAP[value]);
+  for (let i = 0; i < 9; i++) {
+    const p = document.createElement("div");
+    p.className = "pip" + (pips.has(i) ? "" : " hidden");
+    el.appendChild(p);
+  }
+  return el;
+}
+
+function runBlitz(srcName, tgtName, cb) {
+  // Auto-roll rounds every ~120ms until either side can't continue
+  const cp = currentPlayer();
+  const step = () => {
+    const src = state.territories[srcName];
+    const tgt = state.territories[tgtName];
+    if (src.armies < 2) { render(); cb && cb(); return; }
+    if (tgt.owner === cp.id) { render(); cb && cb(); return; } // captured
+    if (tgt.armies <= 0) { render(); cb && cb(); return; }
+    runOneRoll(srcName, tgtName, () => {
+      // After one roll completed (and any capture modal resolved asynchronously for human)
+      // If capture happened, the capture flow resets selection. Stop blitz.
+      if (state.selected.target !== tgtName || state.territories[tgtName].owner === cp.id) {
+        render(); cb && cb(); return;
+      }
+      setTimeout(step, 120);
+    });
+  };
+  step();
+}
+
+function endAttackPhase() {
+  const cp = currentPlayer();
+  // Award card if conquered
+  if (state.conqueredThisTurn) {
+    drawCardFor(cp);
+  }
+  state.phase = "fortify";
+  state.selected = { source: null, target: null };
+  state.lastDice = null;
+  render();
+  if (cp.isAI) setTimeout(aiFortify, 500);
+}
+
+function drawCardFor(player) {
+  if (state.deck.length === 0) {
+    // refill from discard
+    state.deck = shuffle(state.discard);
+    state.discard = [];
+  }
+  if (state.deck.length > 0) {
+    const card = state.deck.shift();
+    player.cards.push(card);
+    log(`${player.name} earns a territory card (${card.type === "Wild" ? "Wild" : card.type + "/" + card.territory}).`);
+  }
+}
+
+/* =========================================================================
+   FORTIFY + END TURN
+   ========================================================================= */
+
+function doFortify(srcName, tgtName, count) {
+  const src = state.territories[srcName];
+  const tgt = state.territories[tgtName];
+  if (src.owner !== tgt.owner) { toast("Both territories must be yours."); return; }
+  if (!src.adj.includes(tgtName)) { toast("Territories must be adjacent."); return; }
+  if (count < 1 || count >= src.armies) { toast("Invalid count."); return; }
+  src.armies -= count;
+  tgt.armies += count;
+  log(`${currentPlayer().name} fortifies ${tgtName} with ${count} armies from ${srcName}.`);
+  state.fortifyUsed = true;
+  endTurn();
+}
+
+function endTurn() {
+  advanceTurn();
+}
+
+function advanceTurn() {
+  // === MARKER: hook-turn-end ===
+  const prevPlayer = state.players[state.currentPlayerIdx];
+  Hooks.emit("turnEnd", { player: prevPlayer, turn: state.turn });
+  // Move to next non-eliminated player
+  const n = state.players.length;
+  let next = state.currentPlayerIdx;
+  for (let step = 1; step <= n; step++) {
+    const idx = (state.currentPlayerIdx + step) % n;
+    if (!state.players[idx].eliminated) {
+      next = idx;
+      break;
+    }
+  }
+  // If next wraps around past the last non-eliminated, increment turn
+  if (next <= state.currentPlayerIdx) state.turn += 1;
+  state.currentPlayerIdx = next;
+  state.phase = "reinforce";
+  state.selected = { source: null, target: null };
+  beginReinforcePhase();
+}
+
+/* =========================================================================
+   VICTORY
+   ========================================================================= */
+
+function declareVictory(player) {
+  state.phase = "victory";
+  log(`<b>${player.name} has achieved world domination!</b>`);
+  // Post-game goal reveal
+  state.players.filter(p => p.goal).forEach(p => {
+    const complete = Goal.isComplete(p);
+    log(`<i>${p.name} [${p.personality?.name || ""}]: goal <b>${p.goal.type}</b> — ${complete ? "FULFILLED" : "abandoned"}</i>`);
+  });
+  try { Persist.recordGame(player, state.players); } catch(e){}
+  render();
+  const root = document.getElementById("victory-root");
+  root.innerHTML = `
+    <div id="victory-overlay">
+      <div id="victory-panel">
+        <div class="crown">★ World Domination ★</div>
+        <div class="winner-color" style="background:${player.color};color:${player.color}"></div>
+        <h1>${player.name}</h1>
+        <div class="meta">Turn ${state.turn} · ${ownedContinents(player.id).length} continent(s) · 42 territories</div>
+        <button class="btn" id="play-again-btn">Play Again</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("play-again-btn").addEventListener("click", resetGame);
+}
+
+function resetGame() {
+  document.getElementById("victory-root").innerHTML = "";
+  document.getElementById("modal-root").innerHTML = "";
+  document.getElementById("setup-overlay").classList.remove("hidden");
+  document.getElementById("log-list").innerHTML = "";
+  state = null;
+  midAttackResume = null;
+  lastArmiesShown.clear();
+  initSetupScreen();
+  // clear map
+  document.getElementById("map-svg").innerHTML = "";
+}
+
+/* =========================================================================
+   AI
+   ========================================================================= */
+
+function scheduleIfAI() {
+  const cp = currentPlayer();
+  if (!cp || !cp.isAI) return;
+  if (state.phase === "setup-reinforce") {
+    setTimeout(aiSetupReinforce, 250);
+  } else if (state.phase === "reinforce") {
+    setTimeout(aiReinforcePhase, 500);
+  } else if (state.phase === "attack") {
+    setTimeout(aiAttackPhase, 500);
+  } else if (state.phase === "fortify") {
+    setTimeout(aiFortify, 500);
+  }
+}
+
+// --- Setup reinforce for AI ---
+function aiSetupReinforce() {
+  const cp = currentPlayer();
+  if (cp.armies <= 0) { advanceSetupReinforce(); return; }
+  const owned = ownedBy(cp.id);
+  const best = pickReinforceTerritory(cp, owned);
+  state.territories[best].armies += 1;
+  cp.armies -= 1;
+  if (cp.personality) flog("deploy", { n: 1, terr: best }, cp);
+  else log(`${cp.name} deploys 1 to ${best}.`);
+  render();
+  setTimeout(advanceSetupReinforce, 220);
+}
+
+// --- Reinforce heuristic ---
+function scoreReinforceTerritory(name, player) {
+  const t = state.territories[name];
+  const adjEnemies = t.adj.filter(a => state.territories[a].owner !== player.id);
+  let score = 0;
+  score += 10 * adjEnemies.length * Persona.w(player, "reinforce.adjEnemies");
+  const maxEnemyArmies = adjEnemies.length > 0
+    ? Math.max(...adjEnemies.map(a => state.territories[a].armies))
+    : 0;
+  score += 5 * maxEnemyArmies * Persona.w(player, "reinforce.maxEnemyArmies");
+  if (continentOwnedBy(t.continent, player.id) && adjEnemies.length > 0) {
+    score += 15 * Persona.w(player, "reinforce.continentBorder");
+  }
+  const contTerrs = TERR_ORDER.filter(n => state.territories[n].continent === t.continent);
+  const missing = contTerrs.filter(n => state.territories[n].owner !== player.id);
+  if (missing.length === 1 && t.adj.includes(missing[0])) {
+    score += 8 * Persona.w(player, "reinforce.nearContinent");
+  }
+  const adjFriendly = t.adj.length - adjEnemies.length;
+  score -= 5 * adjFriendly * Persona.w(player, "reinforce.adjFriendly");
+  // === MARKER: scoring-reinforce ===
+  return Scoring.applyReinforce(name, player, score);
+}
+function pickReinforceTerritory(player, owned) {
+  // === MARKER: decision-reinforce ===
+  const options = owned.map(n => ({ name: n, score: scoreReinforceTerritory(n, player) }));
+  const chosen = Decision.pick(options, { kind: "reinforce", player });
+  return chosen ? chosen.name : owned[0];
+}
+
+function aiReinforcePhase() {
+  const cp = currentPlayer();
+  // Trade cards if possible
+  while (cp.cards.length >= 3) {
+    const idxs = findBestAISet(cp);
+    if (!idxs) break;
+    executeTrade(cp, idxs.slice().sort((a,b)=>b-a));
+    render();
+  }
+  // place armies one at a time
+  placeAIReinforce();
+}
+function placeAIReinforce() {
+  const cp = currentPlayer();
+  if (state.pendingReinforcements <= 0) {
+    state.phase = "attack";
+    render();
+    setTimeout(aiAttackPhase, 500);
+    return;
+  }
+  const owned = ownedBy(cp.id);
+  const best = pickReinforceTerritory(cp, owned);
+  state.territories[best].armies += 1;
+  state.pendingReinforcements -= 1;
+  // Only voice every ~3 deploys to reduce spam
+  if (cp.personality && state.pendingReinforcements % 3 === 0) {
+    flog("deploy", { n: 1, terr: best }, cp);
+  }
+  render();
+  setTimeout(placeAIReinforce, 120);
+}
+
+// --- Attack heuristic ---
+function scoreAttack(source, target, player) {
+  const src = state.territories[source];
+  const tgt = state.territories[target];
+  let score = 0;
+  const tgtCont = tgt.continent;
+  const contTerrs = TERR_ORDER.filter(n => state.territories[n].continent === tgtCont);
+  const aiOwnsOthers = contTerrs.filter(n => n !== target).every(n => state.territories[n].owner === player.id);
+  if (aiOwnsOthers) score += 20 * Persona.w(player, "attack.completeContinent");
+  const oppId = tgt.owner;
+  const oppOwnsContinent = contTerrs.every(n => state.territories[n].owner === oppId);
+  if (oppOwnsContinent && contTerrs.length > 1) score += 15 * Persona.w(player, "attack.breakContinent");
+  const opp = playerById(oppId);
+  if (opp) {
+    const oppTerrs = ownedBy(oppId);
+    if (oppTerrs.length <= 3 && target === oppTerrs.reduce((min, n) => state.territories[n].armies < state.territories[min].armies ? n : min, oppTerrs[0])) {
+      score += 10 * Persona.w(player, "attack.eliminate");
+    }
+  }
+  score += 5 * (src.armies - tgt.armies) * Persona.w(player, "attack.armyAdvantage");
+  if (src.armies <= tgt.armies && !aiOwnsOthers) score -= 50 * Persona.w(player, "attack.hopelessPenalty");
+  // === MARKER: scoring-attack ===
+  return Scoring.applyAttack(source, target, player, score);
+}
+
+function aiAttackPhase() {
+  const cp = currentPlayer();
+  let attacksMade = 0;
+  const MAX_ATTACKS = 8;
+
+  const iterate = () => {
+    if (attacksMade >= MAX_ATTACKS) { finishAIAttack(cp); return; }
+    if (state.phase !== "attack") return;
+    // Collect all attack options
+    const options = [];
+    for (const src of ownedBy(cp.id)) {
+      const sT = state.territories[src];
+      if (sT.armies < 3) continue;
+      if (!Rule.canAttack(cp, src)) continue;  // Shogun min-stack / Hermit early-turn gate
+      for (const adj of sT.adj) {
+        if (state.territories[adj].owner !== cp.id) {
+          options.push({ source: src, target: adj, score: scoreAttack(src, adj, cp) });
+        }
+      }
+    }
+    if (options.length === 0) { finishAIAttack(cp); return; }
+    // === MARKER: decision-attack ===
+    const chosen = Decision.pick(options, { kind: "attack", player: cp, turn: state.turn });
+    if (!chosen || chosen.score <= 0) { finishAIAttack(cp); return; }
+    const best = chosen;
+    // Stop if AI holds ≥1 conquest and max source stack ≤3
+    if (attacksMade >= 1) {
+      const maxSrc = Math.max(...ownedBy(cp.id).map(n => state.territories[n].armies));
+      if (maxSrc <= 3) { finishAIAttack(cp); return; }
+    }
+    // Execute attack with blitz
+    state.selected.source = best.source;
+    state.selected.target = best.target;
+    render();
+    attacksMade++;
+    // AI blitzes
+    aiBlitz(best.source, best.target, () => {
+      state.selected.source = null;
+      state.selected.target = null;
+      setTimeout(iterate, 400);
+    });
+  };
+  iterate();
+}
+
+function aiBlitz(srcName, tgtName, cb) {
+  // Similar to runBlitz but with guaranteed AI behavior (auto-advance max)
+  const cp = currentPlayer();
+  const step = () => {
+    const src = state.territories[srcName];
+    const tgt = state.territories[tgtName];
+    if (src.armies < 2) { cb && cb(); return; }
+    if (tgt.owner === cp.id) { cb && cb(); return; }
+    runOneRoll(srcName, tgtName, () => {
+      // if captured, capture flow already handled via onTerritoryCaptured (AI auto-moves)
+      if (state.territories[tgtName].owner === cp.id) {
+        cb && cb(); return;
+      }
+      // continue
+      setTimeout(step, 180);
+    });
+  };
+  step();
+}
+
+function finishAIAttack(cp) {
+  if (state.conqueredThisTurn) drawCardFor(cp);
+  state.phase = "fortify";
+  state.selected = { source: null, target: null };
+  render();
+  setTimeout(aiFortify, 500);
+}
+
+// --- Fortify (AI) ---
+function aiFortify() {
+  const cp = currentPlayer();
+  if (state.phase !== "fortify") return;
+  const owned = ownedBy(cp.id);
+  // Find owned territory with highest armies AND no adj enemy
+  let candidates = owned.filter(n => {
+    const t = state.territories[n];
+    return t.armies >= 2 && t.adj.every(a => state.territories[a].owner === cp.id);
+  });
+  if (candidates.length === 0) {
+    log(`${cp.name} declines to fortify.`);
+    advanceTurn();
+    return;
+  }
+  candidates.sort((a, b) => state.territories[b].armies - state.territories[a].armies);
+  const src = candidates[0];
+  // Pick adjacent friendly with highest adjacent-enemy-armies total
+  const srcT = state.territories[src];
+  let bestDest = null, bestScore = -1;
+  for (const adj of srcT.adj) {
+    if (state.territories[adj].owner !== cp.id) continue;
+    const adjT = state.territories[adj];
+    const enemyTotal = adjT.adj.reduce((s, n) => s + (state.territories[n].owner !== cp.id ? state.territories[n].armies : 0), 0);
+    if (enemyTotal > bestScore) { bestScore = enemyTotal; bestDest = adj; }
+  }
+  if (!bestDest) {
+    advanceTurn();
+    return;
+  }
+  const move = srcT.armies - 1;
+  srcT.armies -= move;
+  state.territories[bestDest].armies += move;
+  if (cp.personality) flog("fortify", { count: move, target: bestDest }, cp);
+  else log(`${cp.name} fortifies ${bestDest} with ${move} armies from ${src}.`);
+  render();
+  setTimeout(advanceTurn, 400);
+}
+
+// --- AI forced trade ---
+function aiForceTrade(player, duringAttack, done) {
+  while (player.cards.length >= 5) {
+    const idxs = findBestAISet(player);
+    if (!idxs) break;
+    executeTrade(player, idxs.slice().sort((a,b)=>b-a));
+  }
+  // If during reinforce, armies go into pendingReinforcements normally
+  // If during attack, we also need to place them immediately
+  if (duringAttack) {
+    // place armies via AI reinforce heuristic right away
+    while (state.pendingReinforcements > 0) {
+      const owned = ownedBy(player.id);
+      if (owned.length === 0) break;
+      const best = pickReinforceTerritory(player, owned);
+      state.territories[best].armies += 1;
+      state.pendingReinforcements -= 1;
+    }
+    log(`${player.name} places forced-trade bonus armies and continues the attack.`);
+    render();
+    done && done();
+  } else {
+    render();
+    scheduleIfAI();
+  }
+}
+
+/* =========================================================================
+   MOBILE HELPERS — tabs, haptics, iOS keyboard scroll
+   ========================================================================= */
+
+// Light haptic buzz on supported devices. Silently no-ops otherwise.
+function buzz(ms = 10) {
+  try {
+    if (navigator && typeof navigator.vibrate === "function") navigator.vibrate(ms);
+  } catch (e) { /* ignore */ }
+}
+
+// Track whether user manually picked a tab this phase so auto-switch respects them.
+let _mobileTabManualOverride = false;
+let _mobileLastPhase = null;
+
+function isMobileViewport() {
+  return window.innerWidth < 900;
+}
+
+function selectTab(tabId) {
+  const bar = document.getElementById("sidebar-tabs");
+  if (!bar) return;
+  const buttons = bar.querySelectorAll("button[data-tab]");
+  let matched = false;
+  buttons.forEach(btn => {
+    if (btn.dataset.tab === tabId) { btn.classList.add("active"); matched = true; }
+    else btn.classList.remove("active");
+  });
+  if (!matched) return;
+  // Mark the matching panel(s) active-tab; hide siblings (via CSS in mobile view)
+  const sections = document.querySelectorAll("#sidebar .panel-section[data-tab]");
+  sections.forEach(sec => {
+    if (sec.dataset.tab === tabId) sec.classList.add("active-tab");
+    else sec.classList.remove("active-tab");
+  });
+}
+
+function autoSwitchTab() {
+  if (!isMobileViewport()) return;
+  if (!state || !state.phase) return;
+  const phase = state.phase;
+  // On a new phase, clear the manual override so the relevant tab gets focus.
+  if (phase !== _mobileLastPhase) {
+    _mobileTabManualOverride = false;
+    _mobileLastPhase = phase;
+  }
+  if (_mobileTabManualOverride) return;
+  const map = {
+    "setup-claim": "controls",
+    "setup-reinforce": "controls",
+    "reinforce": "controls",
+    "attack": "controls",
+    "fortify": "controls",
+    "victory": "roster",
+  };
+  selectTab(map[phase] || "controls");
+}
+
+function wireMobileTabs() {
+  const bar = document.getElementById("sidebar-tabs");
+  if (!bar) return;
+  bar.querySelectorAll("button[data-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      selectTab(btn.dataset.tab);
+      _mobileTabManualOverride = true;
+      buzz(8);
+    });
+  });
+  // Default: activate "turn" panel-section so something is visible pre-game.
+  selectTab("turn");
+}
+
+// iOS keyboard: when an input on the setup screen is focused, scroll it above the keyboard.
+function wireSetupKeyboardScroll() {
+  const handler = (e) => {
+    setTimeout(() => {
+      try { e.target.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) {}
+    }, 300);
+  };
+  document.querySelectorAll("#setup-overlay input[type=text], #setup-overlay .p-name").forEach(input => {
+    input.addEventListener("focus", handler);
+  });
+  // Capture future slots rendered after initSetupScreen re-renders.
+  const setupRoot = document.getElementById("setup-overlay");
+  if (setupRoot) {
+    setupRoot.addEventListener("focusin", (ev) => {
+      if (ev.target && (ev.target.matches('input[type=text]') || ev.target.classList.contains('p-name'))) {
+        setTimeout(() => {
+          try { ev.target.scrollIntoView({ behavior: "smooth", block: "center" }); } catch(_) {}
+        }, 300);
+      }
+    });
+  }
+}
+
+// Switch to Feed on AI turn so user sees narration (todo 14).
+Hooks.on("turnStart", ({ player }) => {
+  if (!isMobileViewport()) return;
+  if (player && player.isAI) {
+    _mobileTabManualOverride = false;
+    selectTab("feed");
+  }
+});
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+
+window.addEventListener("DOMContentLoaded", () => {
+  initSetupScreen();
+  wireMobileTabs();
+  wireSetupKeyboardScroll();
+});
+</script>
+</body>
+</html>
