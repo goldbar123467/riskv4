@@ -4,7 +4,6 @@
 
 import { useMemo, useState } from 'react';
 import type {
-  Action,
   EdgeId,
   PlayerId,
   Resource,
@@ -190,11 +189,10 @@ export default function Page(): JSX.Element {
         />
       )}
 
-      {state.phase === 'STEAL' && state.currentPlayer === HUMAN_ID && stealCandidates.length > 1 && (
+      {robberIntent && state.currentPlayer === HUMAN_ID && stealCandidates.length > 1 && (
         <StealVictimModal
           state={state}
           candidates={stealCandidates}
-          tile={state.robberTile}
           onPick={onStealVictim}
         />
       )}

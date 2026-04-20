@@ -8,7 +8,7 @@ import { initialState } from '@/game/setup';
 import { reduce } from '@/game/actions';
 import { canDo as engineCanDo } from '@/game/rules';
 import { decide } from '@/ai/agent';
-import { personalities } from '@/ai/personalities';
+import { PERSONALITIES } from '@/ai/personalities';
 
 const SAVE_KEY = 'catan:save';
 const AI_DELAY_MS = 700;
@@ -33,7 +33,7 @@ function makeSeed(): number {
 function freshState(seed?: number): GameState {
   return initialState({
     seed: seed ?? makeSeed(),
-    aiPersonalities: personalities,
+    aiPersonalities: PERSONALITIES,
   });
 }
 

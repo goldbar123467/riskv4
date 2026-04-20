@@ -82,7 +82,6 @@ export function DiscardModal(props: DiscardModalProps): JSX.Element {
 export interface StealVictimModalProps {
   readonly state: GameState;
   readonly candidates: readonly PlayerId[];
-  readonly tile: string;
   readonly onPick: (victim: PlayerId | null) => void;
 }
 
@@ -275,7 +274,10 @@ export function DevCardModal(props: DevCardModalProps): JSX.Element {
   const counts = { knight: 0, roadBuilding: 0, monopoly: 0, yearOfPlenty: 0 };
   for (const d of playable) counts[d.kind as keyof typeof counts] += 1;
 
-  const canKnight = counts.knight > 0 && canDo({ kind: 'PLAY_KNIGHT', tile: state.robberTile, victim: null }).ok;
+  // Use any tile that isn't the current robber for a legality probe — the real
+  // tile is chosen by clicking the board after the knight is armed.
+  const probeTile = state.board.tileOrder.find(t => t !== state.robberTile) ?? state.robberTile;
+  const canKnight = counts.knight > 0 && canDo({ kind: 'PLAY_KNIGHT', tile: probeTile, victim: null }).ok;
   const canRB = counts.roadBuilding > 0 && canDo({ kind: 'PLAY_ROAD_BUILDING' }).ok;
   const canMonopoly = counts.monopoly > 0 && canDo({ kind: 'PLAY_MONOPOLY', resource: 'wood' }).ok;
   const canYoP = counts.yearOfPlenty > 0 && canDo({ kind: 'PLAY_YEAR_OF_PLENTY', resources: ['wood', 'wood'] }).ok;

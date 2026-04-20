@@ -8,7 +8,6 @@ import type {
   Legality,
   Player,
   PlayerColor,
-  Resource,
 } from '@/game/types';
 import { RESOURCES, playerVP } from '@/game/types';
 
@@ -204,7 +203,10 @@ function devLabel(kind: string): string {
 
 function RosterRow(props: { state: GameState; player: Player; active: boolean }): JSX.Element {
   const { state, player, active } = props;
-  const vp = playerVP(state, player);
+  const vpFull = playerVP(state, player);
+  // Hide private VP-cards for AIs (public VP only).
+  const hiddenVP = player.isAI ? player.devCards.filter(d => d.kind === 'victoryPoint' && !d.played).length : 0;
+  const vp = vpFull - hiddenVP;
   const cards = player.hand.wood + player.hand.brick + player.hand.wheat + player.hand.sheep + player.hand.ore;
   const mood = MOOD_GLYPH[player.mood] ?? '·';
   return (
@@ -249,18 +251,25 @@ function Controls(props: {
   }
 
   if (phase === 'ACTION' && isHumanTurn) {
+    const me = state.players[state.currentPlayer]!;
+    const canPayRoad = me.hand.wood >= 1 && me.hand.brick >= 1;
+    const canPaySettlement = me.hand.wood >= 1 && me.hand.brick >= 1 && me.hand.wheat >= 1 && me.hand.sheep >= 1;
+    const canPayCity = me.hand.wheat >= 2 && me.hand.ore >= 3;
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap' }}>
         <button
           className={`btn${buildMode === 'road' ? '' : ' secondary'}`}
+          disabled={!canPayRoad}
           onClick={() => setBuildMode(buildMode === 'road' ? null : 'road')}
         >Build Road</button>
         <button
           className={`btn${buildMode === 'settlement' ? '' : ' secondary'}`}
+          disabled={!canPaySettlement}
           onClick={() => setBuildMode(buildMode === 'settlement' ? null : 'settlement')}
         >Build Settlement</button>
         <button
           className={`btn${buildMode === 'city' ? '' : ' secondary'}`}
+          disabled={!canPayCity}
           onClick={() => setBuildMode(buildMode === 'city' ? null : 'city')}
         >Build City</button>
         <button
