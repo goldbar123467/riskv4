@@ -8,7 +8,8 @@
     "start": "next start",
     "type-check": "tsc --noEmit",
     "lint": "next lint",
-    "gate": "npm run type-check && npm run lint && npm run build"
+    "smoke": "tsx scripts/smoke.ts",
+    "gate": "node scripts/gate.mjs"
   },
   "dependencies": {
     "next": "14.2.15",
@@ -21,6 +22,7 @@
     "@types/react-dom": "18.3.0",
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.15",
+    "tsx": "^4.21.0",
     "typescript": "5.5.4"
   }
 }

@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 const stages = [
   { name: 'type-check', cmd: 'npm', args: ['run', '-s', 'type-check'] },
   { name: 'lint',       cmd: 'npm', args: ['run', '-s', 'lint'] },
+  { name: 'smoke',      cmd: 'npm', args: ['run', '-s', 'smoke'] },
   { name: 'build',      cmd: 'npm', args: ['run', '-s', 'build'] },
 ];
 
