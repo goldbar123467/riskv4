@@ -705,6 +705,11 @@ button, input[type=checkbox], input[type=range], select, .btn, .card-chip, .node
         <div class="name" id="turn-name">—</div>
         <div class="turn-num" id="turn-num">Turn 1</div>
       </div>
+      <div id="save-load-row" style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn secondary" id="save-game-btn" style="flex:1;margin:0">Save Game</button>
+        <button class="btn secondary" id="load-game-btn" style="flex:1;margin:0">Load Game</button>
+      </div>
+      <div id="save-info" style="font-size:10px;color:var(--text-3);margin-top:6px;min-height:12px"></div>
     </div>
     <div class="panel-section" id="phase-panel" data-tab="controls">
       <div id="phase-label">SETUP</div>
@@ -748,6 +753,8 @@ button, input[type=checkbox], input[type=range], select, .btn, .card-chip, .node
     </div>
     <div class="player-slots" id="player-slots"></div>
     <button class="btn full" id="start-game-btn">Start Game</button>
+    <button class="btn secondary full hidden" id="load-saved-btn">Load Saved Game</button>
+    <div id="saved-game-summary" style="text-align:center;font-size:10px;color:var(--text-3);margin-top:6px;min-height:12px"></div>
   </div>
 </div>
 
@@ -1834,6 +1841,99 @@ const Persist = (() => {
 })();
 
 /* =========================================================================
+   SAVE/LOAD — Local game snapshot
+   ========================================================================= */
+const SaveLoad = (() => {
+  const KEY = "rg.savedGame";
+  const VERSION = 1;
+  function serialize(st) {
+    const snap = {
+      __version: VERSION,
+      savedAt: Date.now(),
+      phase: st.phase,
+      turn: st.turn,
+      currentPlayerIdx: st.currentPlayerIdx,
+      players: st.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        isAI: p.isAI,
+        archId: p.personality?.id ?? p.archId ?? null,
+        armies: p.armies,
+        cards: p.cards,
+        eliminated: p.eliminated,
+        runtimeWeights: p.runtimeWeights,
+        runtimeTemperature: p.runtimeTemperature,
+        regretTempAccum: p.regretTempAccum,
+        mood: p.mood,
+        grudges: p.grudges,
+        goal: p.goal,
+        goalProgress: p.goalProgress,
+        openingBook: p.openingBook,
+        ruleMods: p.ruleMods,
+        _attackedThisTurn: p._attackedThisTurn,
+        _attackedLastTurn: p._attackedLastTurn,
+      })),
+      territories: st.territories,
+      deck: st.deck,
+      discard: st.discard,
+      setsTradedGlobal: st.setsTradedGlobal,
+      conqueredThisTurn: st.conqueredThisTurn,
+      fortifyUsed: st.fortifyUsed,
+      pendingReinforcements: st.pendingReinforcements,
+      selected: st.selected,
+      selectedCards: st.selectedCards,
+      log: st.log,
+      pendingAttack: st.pendingAttack,
+      pendingMove: st.pendingMove,
+      lastDice: st.lastDice,
+      midAttackPlacement: st.midAttackPlacement,
+      reputation: st.reputation,
+      observations: st.observations,
+      uiAlerts: st.uiAlerts,
+    };
+    return JSON.stringify(snap);
+  }
+  function deserialize(raw) {
+    const data = JSON.parse(raw);
+    for (const p of data.players) {
+      p.personality = Arch.get(p.archId);
+      p.currentPlan = null;
+      p.grudges = p.grudges || {};
+      p.ruleMods = p.ruleMods || {};
+    }
+    return data;
+  }
+  return {
+    save(st) {
+      if (!st) return false;
+      if (st.phase === "victory" || st.phase === "setup-claim") return false;
+      if (st.midAttackPlacement) return false;
+      try { localStorage.setItem(KEY, serialize(st)); return true; } catch(e) { return false; }
+    },
+    load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return null;
+        return deserialize(raw);
+      } catch(e) { return null; }
+    },
+    has() {
+      try { return !!localStorage.getItem(KEY); } catch(e) { return false; }
+    },
+    info() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return null;
+        const d = JSON.parse(raw);
+        return { savedAt: d.savedAt, turn: d.turn, phase: d.phase, players: d.players.map(p => p.name) };
+      } catch(e) { return null; }
+    },
+    clear() { try { localStorage.removeItem(KEY); } catch(e){} },
+  };
+})();
+
+/* =========================================================================
    HOOK SUBSCRIPTIONS (wire up behavioral modules)
    ========================================================================= */
 Hooks.on("gameStart", ({ players }) => {
@@ -2762,6 +2862,66 @@ function initSetupScreen() {
   if (lgEl) {
     lgEl.innerHTML = lg ? `Last: <b>${lg.winner}</b> won — ${new Date(lg.timestamp).toLocaleDateString()}` : "";
   }
+  // Saved-game load UI
+  const loadBtn = document.getElementById("load-saved-btn");
+  const savedSummary = document.getElementById("saved-game-summary");
+  const info = SaveLoad.info();
+  if (loadBtn) {
+    if (info) {
+      loadBtn.classList.remove("hidden");
+      loadBtn.onclick = loadSavedGame;
+    } else {
+      loadBtn.classList.add("hidden");
+    }
+  }
+  if (savedSummary) {
+    savedSummary.innerHTML = info
+      ? `Saved: turn ${info.turn} · ${info.phase} · ${new Date(info.savedAt).toLocaleString()}`
+      : "";
+  }
+}
+
+function loadSavedGame() {
+  const data = SaveLoad.load();
+  if (!data) { toast("No saved game found."); return; }
+  state = data;
+  midAttackResume = null;
+  lastArmiesShown.clear();
+  document.getElementById("setup-overlay").classList.add("hidden");
+  document.getElementById("victory-root").innerHTML = "";
+  document.getElementById("modal-root").innerHTML = "";
+  document.getElementById("log-list").innerHTML = "";
+  render();
+  updateSaveInfo();
+  toast("Game loaded.");
+  scheduleIfAI();
+}
+
+function saveCurrentGame() {
+  if (!state) { toast("No game in progress."); return; }
+  const ok = SaveLoad.save(state);
+  if (ok) {
+    toast("Game saved.");
+    updateSaveInfo();
+  } else {
+    toast("Cannot save right now.");
+  }
+}
+
+function updateSaveInfo() {
+  const el = document.getElementById("save-info");
+  if (!el) return;
+  const info = SaveLoad.info();
+  el.textContent = info ? `Saved: ${new Date(info.savedAt).toLocaleTimeString()}` : "";
+  const loadBtn = document.getElementById("load-game-btn");
+  if (loadBtn) loadBtn.disabled = !info;
+}
+
+function loadGameFromSidebar() {
+  if (!SaveLoad.has()) { toast("No saved game found."); return; }
+  const ok = window.confirm("Load saved game? Current progress will be lost.");
+  if (!ok) return;
+  loadSavedGame();
 }
 
 function startGame() {
@@ -3935,6 +4095,11 @@ window.addEventListener("DOMContentLoaded", () => {
   initSetupScreen();
   wireMobileTabs();
   wireSetupKeyboardScroll();
+  const saveBtn = document.getElementById("save-game-btn");
+  if (saveBtn) saveBtn.addEventListener("click", saveCurrentGame);
+  const loadBtn = document.getElementById("load-game-btn");
+  if (loadBtn) loadBtn.addEventListener("click", loadGameFromSidebar);
+  updateSaveInfo();
 });
 </script>
 </body>
