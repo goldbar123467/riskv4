@@ -3039,6 +3039,15 @@ function executeTrade(player, indices) {
   }
 }
 
+function discardCards(player, indices) {
+  const sorted = indices.slice().sort((a,b)=>b-a);
+  sorted.forEach(i => {
+    state.discard.push(player.cards[i]);
+    player.cards.splice(i, 1);
+  });
+  log(`${player.name} discards ${sorted.length} card(s).`);
+}
+
 function openHumanForcedTradeModal() {
   const cp = currentPlayer();
   if (cp.cards.length < 5) return;
@@ -3050,10 +3059,11 @@ function openHumanForcedTradeModal() {
   m.className = "modal";
   m.innerHTML = `
     <h2>Mandatory Trade</h2>
-    <div class="subtext">You hold ${cp.cards.length} cards. You must trade sets down to 4 or fewer before continuing.</div>
+    <div class="subtext">You hold ${cp.cards.length} cards. You must trade sets down to 4 or fewer before continuing. If you can't form a valid set, select one card and discard it.</div>
     <div class="card-list" id="forced-card-list"></div>
     <div class="modal-buttons">
       <button class="btn" id="forced-trade-btn" disabled>Trade Selected</button>
+      <button class="btn" id="forced-discard-btn" disabled>Discard Card</button>
     </div>
   `;
   backdrop.appendChild(m);
@@ -3079,13 +3089,20 @@ function openHumanForcedTradeModal() {
       list.appendChild(span);
     });
     const trio = Array.from(selected).map(i => cp.cards[i]);
-    const btn = m.querySelector("#forced-trade-btn");
-    btn.disabled = !(trio.length === 3 && validSet(trio));
+    m.querySelector("#forced-trade-btn").disabled = !(trio.length === 3 && validSet(trio));
+    m.querySelector("#forced-discard-btn").disabled = selected.size !== 1;
   }
   refresh();
   m.querySelector("#forced-trade-btn").addEventListener("click", () => {
     const idxs = Array.from(selected).sort((a,b)=>b-a);
     executeTrade(cp, idxs);
+    backdrop.remove();
+    render();
+    if (cp.cards.length >= 5) openHumanForcedTradeModal();
+  });
+  m.querySelector("#forced-discard-btn").addEventListener("click", () => {
+    const idxs = Array.from(selected).sort((a,b)=>b-a);
+    discardCards(cp, idxs);
     backdrop.remove();
     render();
     if (cp.cards.length >= 5) openHumanForcedTradeModal();
@@ -3285,10 +3302,11 @@ function openHumanForcedTradeAttack(done) {
   m.className = "modal";
   m.innerHTML = `
     <h2>Forced Trade (Mid-Attack)</h2>
-    <div class="subtext">You seized cards from an eliminated foe and now hold ${cp.cards.length}. Trade a set immediately. Bonus armies will be placed on your territories now.</div>
+    <div class="subtext">You seized cards from an eliminated foe and now hold ${cp.cards.length}. Trade a set immediately. Bonus armies will be placed on your territories now. If you can't form a valid set, select one card and discard it.</div>
     <div class="card-list" id="mid-trade-list"></div>
     <div class="modal-buttons">
       <button class="btn" id="mid-trade-btn" disabled>Trade Set</button>
+      <button class="btn" id="mid-discard-btn" disabled>Discard Card</button>
     </div>
   `;
   backdrop.appendChild(m);
@@ -3315,6 +3333,7 @@ function openHumanForcedTradeAttack(done) {
     });
     const trio = Array.from(selected).map(i => cp.cards[i]);
     m.querySelector("#mid-trade-btn").disabled = !(trio.length === 3 && validSet(trio));
+    m.querySelector("#mid-discard-btn").disabled = selected.size !== 1;
   }
   refresh();
   m.querySelector("#mid-trade-btn").addEventListener("click", () => {
@@ -3324,6 +3343,14 @@ function openHumanForcedTradeAttack(done) {
     backdrop.remove();
     // Place armies now (human clicks)
     openMidAttackPlacementModal(done);
+  });
+  m.querySelector("#mid-discard-btn").addEventListener("click", () => {
+    const idxs = Array.from(selected).sort((a,b)=>b-a);
+    discardCards(cp, idxs);
+    backdrop.remove();
+    if (cp.cards.length >= 5) { openHumanForcedTradeAttack(done); return; }
+    render();
+    done && done();
   });
 }
 
